@@ -9,7 +9,7 @@ import { PageTransition } from './components/layout/PageTransition';
 import { LiquidBackground } from './components/ui/LiquidBackground';
 import { Toast } from './components/ui/Toast';
 import { useAuth } from './context/AuthContext';
-import { FirestoreUserService, FirestoreRecipesService, getTodayDateKey } from './services/firestore';
+import { FirestoreUserService, FirestoreRecipesService, FirestoreFoodService, getTodayDateKey } from './services/firestore';
 
 import { LandingView } from './views/LandingView';
 import { LoginView } from './views/LoginView';
@@ -25,6 +25,11 @@ import { MealDetailModal } from './views/MealDetailModal';
 
 export function App() {
   const { user, userProfile, setUserProfile } = useAuth();
+
+  useEffect(() => {
+    FirestoreRecipesService.seedRecipesIfEmpty();
+    FirestoreFoodService.seedFoodsIfEmpty();
+  }, []);
   const [currentRoute, setCurrentRoute] = useState<Route>('dashboard');
   const [dailyNutrition, setDailyNutrition] = useState<DailyNutritionTarget>(MOCK_DAILY_NUTRITION);
   const [loggedMeals, setLoggedMeals] = useState<Record<MealType, MealItem[]>>(MOCK_LOGGED_MEALS as any);
@@ -32,6 +37,8 @@ export function App() {
   // Modal State
   const [selectedMeal, setSelectedMeal] = useState<MealItem | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState<boolean>(false);
+  const [isEditingMeal, setIsEditingMeal] = useState<boolean>(false);
+  const [modalTargetMealType, setModalTargetMealType] = useState<MealType | undefined>(undefined);
 
   // Toast State
   const [toastMessage, setToastMessage] = useState<string>('');
@@ -44,6 +51,28 @@ export function App() {
   useEffect(() => {
     FirestoreRecipesService.seedRecipesIfEmpty();
   }, []);
+
+  // Recalculate consumed macro totals from logged meals
+  const recalculateTotalsFromMeals = (
+    mealsRecord: Record<MealType, MealItem[]>,
+    baseNutrition: DailyNutritionTarget
+  ): DailyNutritionTarget => {
+    const all = Object.values(mealsRecord).flat();
+    const consumedCalories = all.reduce((sum, m) => sum + (m.macros?.calories || 0), 0);
+    const consumedProtein = all.reduce((sum, m) => sum + (m.macros?.protein || 0), 0);
+    const consumedCarbs = all.reduce((sum, m) => sum + (m.macros?.carbs || 0), 0);
+    const consumedFat = all.reduce((sum, m) => sum + (m.macros?.fat || 0), 0);
+    const consumedFiber = all.reduce((sum, m) => sum + (m.macros?.fiber || 0), 0);
+
+    return {
+      ...baseNutrition,
+      consumedCalories,
+      consumedProtein,
+      consumedCarbs,
+      consumedFat,
+      consumedFiber
+    };
+  };
 
   // Fetch isolated user profile and daily logs when authenticated user UID changes
   useEffect(() => {
@@ -69,11 +98,18 @@ export function App() {
         setIsProfileLoading(false);
       });
 
-      FirestoreUserService.getDailyNutrition(user.uid, today).then((nut) => {
-        if (nut) setDailyNutrition(nut);
-      });
-      FirestoreUserService.getLoggedMeals(user.uid, today).then((meals) => {
-        if (meals) setLoggedMeals(meals);
+      Promise.all([
+        FirestoreUserService.getDailyNutrition(user.uid, today),
+        FirestoreUserService.getLoggedMeals(user.uid, today)
+      ]).then(([nut, meals]) => {
+        if (meals) {
+          setLoggedMeals(meals);
+          if (nut) {
+            setDailyNutrition(recalculateTotalsFromMeals(meals, nut));
+          }
+        } else if (nut) {
+          setDailyNutrition(nut);
+        }
       });
     }
   }, [user?.uid, setUserProfile]);
@@ -84,9 +120,19 @@ export function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Open Meal Detail Modal
-  const handleViewMealDetails = (meal: MealItem) => {
+  // Open Meal Detail Modal for Viewing / Logging
+  const handleViewMealDetails = (meal: MealItem, targetCourse?: MealType) => {
     setSelectedMeal(meal);
+    setIsEditingMeal(false);
+    setModalTargetMealType(targetCourse);
+    setIsDetailOpen(true);
+  };
+
+  // Open Meal Detail Modal for Editing Logged Meal Portion
+  const handleEditMealPortion = (meal: MealItem) => {
+    setSelectedMeal(meal);
+    setIsEditingMeal(true);
+    setModalTargetMealType(meal.type);
     setIsDetailOpen(true);
   };
 
@@ -100,9 +146,14 @@ export function App() {
     }, 3500);
   };
 
-  // Add Meal to Today's Plan
-  const handleAddMealToPlan = async (meal: MealItem, portionMultiplier: number = 1, oil: OilLevel = 'low') => {
-    const mealCategory: MealType = meal.type === 'all' ? 'breakfast' : meal.type;
+  // Add Meal to Today's Plan & Save Nutrition Snapshot to Firestore
+  const handleAddMealToPlan = async (
+    meal: MealItem, 
+    portionMultiplier: number = 1, 
+    oil: OilLevel = 'low',
+    targetMealType?: MealType
+  ) => {
+    const mealCategory: MealType = targetMealType || (meal.type === 'all' ? 'breakfast' : meal.type);
 
     const oilGrams = oil === 'none' ? 0 : oil === 'low' ? 5 : oil === 'medium' ? 10 : 15;
     const baseOilGrams = meal.oilLevel === 'none' ? 0 : meal.oilLevel === 'low' ? 5 : meal.oilLevel === 'medium' ? 10 : 15;
@@ -112,40 +163,93 @@ export function App() {
     const scaledProtein = Math.round(meal.macros.protein * portionMultiplier);
     const scaledCarbs = Math.round(meal.macros.carbs * portionMultiplier);
     const scaledFat = Math.max(0, Math.round(meal.macros.fat * portionMultiplier + oilDiffGrams));
+    const scaledFiber = Math.round((meal.macros.fiber || 5) * portionMultiplier);
 
-    const newMeal: MealItem = {
+    const newLoggedMeal: MealItem = {
       ...meal,
-      id: `${meal.id}-${Date.now()}`,
+      id: `log-${meal.id}-${Date.now()}`,
+      recipeId: meal.recipeId || meal.id,
+      type: mealCategory,
+      servings: portionMultiplier,
+      oilLevel: oil,
+      timestamp: new Date().toISOString(),
       macros: {
         calories: scaledCalories,
         protein: scaledProtein,
         carbs: scaledCarbs,
-        fat: Math.max(0, scaledFat)
+        fat: scaledFat,
+        fiber: scaledFiber
+      },
+      nutritionSnapshot: {
+        energyKcal: scaledCalories,
+        proteinG: scaledProtein,
+        carbohydratesG: scaledCarbs,
+        fatG: scaledFat,
+        fiberG: scaledFiber
       }
     };
 
-    setLoggedMeals((prev) => ({
-      ...prev,
-      [mealCategory]: [...(prev[mealCategory] || []), newMeal]
-    }));
-
-    const updatedNutrition: DailyNutritionTarget = {
-      ...dailyNutrition,
-      consumedCalories: dailyNutrition.consumedCalories + scaledCalories,
-      consumedProtein: dailyNutrition.consumedProtein + scaledProtein,
-      consumedCarbs: dailyNutrition.consumedCarbs + scaledCarbs,
-      consumedFat: dailyNutrition.consumedFat + scaledFat
+    const updatedRecord = {
+      ...loggedMeals,
+      [mealCategory]: [...(loggedMeals[mealCategory] || []), newLoggedMeal]
     };
 
+    setLoggedMeals(updatedRecord);
+
+    const updatedNutrition = recalculateTotalsFromMeals(updatedRecord, dailyNutrition);
     setDailyNutrition(updatedNutrition);
 
     if (user?.uid) {
       const today = getTodayDateKey();
-      await FirestoreUserService.addMealToLog(user.uid, today, newMeal);
+      await FirestoreUserService.addMealToLog(user.uid, today, newLoggedMeal);
       await FirestoreUserService.saveDailyNutrition(user.uid, today, updatedNutrition);
     }
 
-    triggerToast(`Added ${meal.name}`, `+${scaledCalories} kcal • +${scaledProtein}g protein logged to Firestore`);
+    triggerToast(
+      `Logged to ${mealCategory.toUpperCase()}`, 
+      `${meal.name} • +${scaledCalories} kcal, +${scaledProtein}g protein saved to Firestore snapshot`
+    );
+  };
+
+  // Update Logged Meal Portion or Oil Level
+  const handleUpdateLoggedMeal = async (mealId: string, updatedMeal: MealItem) => {
+    // Rebuild logged meals record replacing target meal ID
+    const updatedRecord: Record<MealType, MealItem[]> = {
+      breakfast: [],
+      lunch: [],
+      snack: [],
+      dinner: [],
+      all: []
+    };
+
+    // Remove from existing course & insert updated meal into its new target course
+    Object.keys(loggedMeals).forEach((courseKey) => {
+      const c = courseKey as MealType;
+      loggedMeals[c].forEach((m) => {
+        if (m.id !== mealId) {
+          updatedRecord[c].push(m);
+        }
+      });
+    });
+
+    const targetCourse = (updatedMeal.type === 'all' ? 'breakfast' : updatedMeal.type) as MealType;
+    updatedRecord[targetCourse].push(updatedMeal);
+
+    setLoggedMeals(updatedRecord);
+
+    const updatedNutrition = recalculateTotalsFromMeals(updatedRecord, dailyNutrition);
+    setDailyNutrition(updatedNutrition);
+
+    if (user?.uid) {
+      const today = getTodayDateKey();
+      await FirestoreUserService.updateLoggedMeal(user.uid, today, updatedMeal);
+      await FirestoreUserService.saveDailyNutrition(user.uid, today, updatedNutrition);
+    }
+
+    triggerToast(
+      `Updated Portion for ${updatedMeal.name}`, 
+      `Recalculated: ${updatedMeal.macros.calories} kcal, ${updatedMeal.macros.protein}g protein`
+    );
   };
 
   // Remove Meal from Plan
@@ -153,19 +257,14 @@ export function App() {
     const targetMeal = loggedMeals[mealType]?.find((m) => m.id === mealId);
     if (!targetMeal) return;
 
-    setLoggedMeals((prev) => ({
-      ...prev,
-      [mealType]: prev[mealType].filter((m) => m.id !== mealId)
-    }));
-
-    const updatedNutrition: DailyNutritionTarget = {
-      ...dailyNutrition,
-      consumedCalories: Math.max(0, dailyNutrition.consumedCalories - targetMeal.macros.calories),
-      consumedProtein: Math.max(0, dailyNutrition.consumedProtein - targetMeal.macros.protein),
-      consumedCarbs: Math.max(0, dailyNutrition.consumedCarbs - targetMeal.macros.carbs),
-      consumedFat: Math.max(0, dailyNutrition.consumedFat - targetMeal.macros.fat)
+    const updatedRecord = {
+      ...loggedMeals,
+      [mealType]: loggedMeals[mealType].filter((m) => m.id !== mealId)
     };
 
+    setLoggedMeals(updatedRecord);
+
+    const updatedNutrition = recalculateTotalsFromMeals(updatedRecord, dailyNutrition);
     setDailyNutrition(updatedNutrition);
 
     if (user?.uid) {
@@ -174,7 +273,7 @@ export function App() {
       await FirestoreUserService.saveDailyNutrition(user.uid, today, updatedNutrition);
     }
 
-    triggerToast(`Removed ${targetMeal.name}`, `-${targetMeal.macros.calories} kcal removed from Firestore`);
+    triggerToast(`Removed ${targetMeal.name}`, `-${targetMeal.macros.calories} kcal removed from Firestore daily log`);
   };
 
   const handleSaveProfile = async (profile: UserProfileData) => {
@@ -215,7 +314,7 @@ export function App() {
           {isProfileLoading ? (
             <div className="max-w-4xl mx-auto space-y-6 pt-12 text-center">
               <div className="inline-block animate-spin text-emerald-400 font-extrabold text-2xl">⏳</div>
-              <p className="text-sm text-slate-400">Loading your personalized nutrition profile from Firestore...</p>
+              <p className="text-sm text-slate-400">Loading your daily meal logs & nutrition snapshot from Firestore...</p>
             </div>
           ) : (
             <AnimatePresence mode="wait">
@@ -244,9 +343,12 @@ export function App() {
                   <DashboardView
                     onNavigate={handleNavigate}
                     onViewMealDetails={handleViewMealDetails}
+                    onEditMealPortion={handleEditMealPortion}
                     dailyNutrition={dailyNutrition}
                     loggedMeals={loggedMeals}
-                    onAddMealClick={() => handleNavigate('generator')}
+                    onAddMealClick={(mealType) => setModalTargetMealType(mealType)}
+                    onQuickAddMeal={(recipe, targetType) => handleAddMealToPlan(recipe, 1, 'low', targetType)}
+                    onRemoveMeal={handleRemoveMeal}
                     userProfile={userProfile}
                   />
                 )}
@@ -268,7 +370,7 @@ export function App() {
                 )}
 
                 {currentRoute === 'history' && (
-                  <HistoryView />
+                  <HistoryView onViewMealDetails={handleViewMealDetails} />
                 )}
 
                 {currentRoute === 'favorites' && (
@@ -295,12 +397,18 @@ export function App() {
       {/* Mobile Bottom Navigation */}
       <BottomNav currentRoute={currentRoute} onNavigate={handleNavigate} />
 
-      {/* Recipe Details & Portion Adjuster Modal */}
+      {/* Recipe Details, Portion Adjuster & Edit Meal Modal */}
       <MealDetailModal
         meal={selectedMeal}
         isOpen={isDetailOpen}
-        onClose={() => setIsDetailOpen(false)}
+        onClose={() => {
+          setIsDetailOpen(false);
+          setIsEditingMeal(false);
+        }}
         onAddMeal={handleAddMealToPlan}
+        onUpdateMeal={handleUpdateLoggedMeal}
+        targetMealType={modalTargetMealType}
+        isEditing={isEditingMeal}
       />
 
       {/* Floating Confirmation Toast */}

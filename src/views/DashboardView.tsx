@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Flame, 
@@ -11,23 +12,29 @@ import {
   Moon,
   ChevronRight,
   TrendingUp,
-  Compass
+  Compass,
+  Edit3,
+  Trash2,
+  Wheat
 } from 'lucide-react';
 import type { Route, MealItem, DailyNutritionTarget, MealType, UserProfileData } from '../types';
 import { GlassCard } from '../components/ui/GlassCard';
 import { Button } from '../components/ui/Button';
 import { ProgressRing } from '../components/ui/ProgressRing';
 import { ProgressBar } from '../components/ui/ProgressBar';
-import { MealCard } from '../components/ui/MealCard';
 import { EmptyState } from '../components/ui/EmptyState';
 import { AnimatedNumber } from '../components/ui/AnimatedNumber';
+import { QuickAddMealModal } from '../components/dashboard/QuickAddMealModal';
 
 interface DashboardViewProps {
   onNavigate: (route: Route) => void;
   onViewMealDetails: (meal: MealItem) => void;
+  onEditMealPortion: (meal: MealItem) => void;
   dailyNutrition: DailyNutritionTarget;
   loggedMeals: Record<MealType, MealItem[]>;
   onAddMealClick: (mealType: MealType) => void;
+  onQuickAddMeal?: (recipe: MealItem, targetMealType: MealType) => void;
+  onRemoveMeal: (mealType: MealType, mealId: string) => Promise<void> | void;
   userProfile?: UserProfileData;
 }
 
@@ -49,11 +56,16 @@ const itemVariants = {
 export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigate,
   onViewMealDetails,
+  onEditMealPortion,
   dailyNutrition,
   loggedMeals,
-  onAddMealClick,
+  onQuickAddMeal,
+  onRemoveMeal,
   userProfile
 }) => {
+  const [quickAddModalSection, setQuickAddModalSection] = useState<MealType | null>(null);
+  const [deletingMealId, setDeletingMealId] = useState<string | null>(null);
+
   const caloriesRemaining = Math.max(0, dailyNutrition.targetCalories - dailyNutrition.consumedCalories);
   const proteinRemaining = Math.max(0, dailyNutrition.targetProtein - dailyNutrition.consumedProtein);
   
@@ -68,6 +80,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   ];
 
   const firstName = userProfile?.name ? userProfile.name.split(' ')[0] : 'User';
+
+  const handleRemove = async (sectionType: MealType, mealId: string) => {
+    if (deletingMealId) return; // Prevent duplicate clicks
+    setDeletingMealId(mealId);
+    try {
+      await onRemoveMeal(sectionType, mealId);
+    } finally {
+      setDeletingMealId(null);
+    }
+  };
 
   return (
     <motion.div
@@ -87,7 +109,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             Good morning, {firstName} 👋
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Here is your daily macro targets & South Indian nutrition progress.
+            Real daily meal tracking & South Indian macro targets snapshot.
           </p>
         </div>
 
@@ -108,7 +130,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <GlassCard variant="gradient" className="p-6 sm:p-8 space-y-6 border-slate-800">
           <div className="flex items-center justify-between border-b border-slate-800 pb-4">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-emerald-400" /> Today's Macro Progress
+              <Sparkles className="w-5 h-5 text-emerald-400" /> Today's Macro Snapshot
             </h2>
             <span className="text-xs text-slate-400 font-mono">
               <AnimatedNumber value={dailyNutrition.consumedCalories} /> / {dailyNutrition.targetCalories} kcal
@@ -174,8 +196,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
 
-          {/* Secondary Macro Progress Bars */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+          {/* Secondary Macro Progress Bars (Carbs, Fat, Fiber) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
             <ProgressBar
               label="Carbohydrates"
               value={dailyNutrition.consumedCarbs}
@@ -191,6 +213,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               max={dailyNutrition.targetFat}
               unit="g"
               color="from-slate-400 to-slate-500"
+              showPercentage
+            />
+
+            <ProgressBar
+              label="Dietary Fiber"
+              value={dailyNutrition.consumedFiber || 0}
+              max={dailyNutrition.targetFiber || 35}
+              unit="g"
+              color="from-cyan-400 to-emerald-500"
               showPercentage
             />
           </div>
@@ -245,7 +276,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     variant="outline"
                     size="sm"
                     icon={<Plus className="w-3.5 h-3.5" />}
-                    onClick={() => onAddMealClick(section.type)}
+                    onClick={() => setQuickAddModalSection(section.type)}
                   >
                     Add Meal
                   </Button>
@@ -255,20 +286,100 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <EmptyState
                     icon={section.icon}
                     title={`No ${section.title} Logged Yet`}
-                    description="Use the generator or browse meals to log your food for today."
-                    actionLabel={`Generate ${section.title}`}
-                    onAction={() => onNavigate('generator')}
+                    description={`Select a saved dish or generate a meal specifically for ${section.title}.`}
+                    actionLabel={`Log ${section.title}`}
+                    onAction={() => setQuickAddModalSection(section.type)}
                   />
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {meals.map((meal) => (
-                      <MealCard
-                        key={meal.id}
-                        meal={meal}
-                        onViewDetails={onViewMealDetails}
-                        compact
-                      />
-                    ))}
+                    {meals.map((meal) => {
+                      const isDeleting = deletingMealId === meal.id;
+                      return (
+                        <GlassCard
+                          key={meal.id}
+                          variant="interactive"
+                          className="p-4 flex flex-col justify-between space-y-3 border-slate-800/80 group"
+                        >
+                          <div className="space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-3">
+                                <img
+                                  src={meal.image}
+                                  alt={meal.name}
+                                  className="w-12 h-12 rounded-xl object-cover shrink-0 border border-slate-800"
+                                />
+                                <div>
+                                  <h4 className="font-bold text-sm text-white group-hover:text-emerald-300 transition-colors leading-snug">
+                                    {meal.name}
+                                  </h4>
+                                  <span className="text-[11px] font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 inline-block mt-0.5">
+                                    {meal.servings || 1}x serving
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Snapshot Macro Pill Grid */}
+                            <div className="grid grid-cols-5 gap-1 p-2 rounded-xl bg-slate-900/80 border border-slate-800 text-center font-mono text-[11px]">
+                              <div>
+                                <span className="text-[9px] text-amber-400 block font-sans font-semibold">Kcal</span>
+                                <span className="font-bold text-amber-300">{meal.macros.calories}</span>
+                              </div>
+                              <div>
+                                <span className="text-[9px] text-emerald-400 block font-sans font-semibold">Pro</span>
+                                <span className="font-bold text-emerald-300">{meal.macros.protein}g</span>
+                              </div>
+                              <div>
+                                <span className="text-[9px] text-teal-400 block font-sans font-semibold">Carb</span>
+                                <span className="font-semibold text-teal-300">{meal.macros.carbs}g</span>
+                              </div>
+                              <div>
+                                <span className="text-[9px] text-slate-400 block font-sans font-semibold">Fat</span>
+                                <span className="font-semibold text-slate-300">{meal.macros.fat}g</span>
+                              </div>
+                              <div>
+                                <span className="text-[9px] text-cyan-400 block font-sans font-semibold flex items-center justify-center gap-0.5">
+                                  <Wheat className="w-2.5 h-2.5 text-cyan-400" /> Fib
+                                </span>
+                                <span className="font-semibold text-cyan-300">{meal.macros.fiber || 0}g</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Actions: Edit portion & Remove */}
+                          <div className="flex items-center gap-2 pt-1 border-t border-slate-800/80 justify-between">
+                            <button
+                              onClick={() => onViewMealDetails(meal)}
+                              className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+                            >
+                              Details
+                            </button>
+
+                            <div className="flex items-center gap-1.5">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                icon={<Edit3 className="w-3 h-3" />}
+                                onClick={() => onEditMealPortion(meal)}
+                                className="text-[11px] py-1 px-2.5 h-7"
+                              >
+                                Edit Portion
+                              </Button>
+
+                              <button
+                                disabled={isDeleting}
+                                onClick={() => handleRemove(section.type, meal.id)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer disabled:opacity-50"
+                                aria-label={`Remove ${meal.name}`}
+                                title="Remove meal"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </GlassCard>
+                      );
+                    })}
                   </div>
                 )}
               </motion.div>
@@ -276,6 +387,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           })}
         </div>
       </motion.div>
+
+      {/* Quick Add Meal Modal */}
+      {quickAddModalSection && (
+        <QuickAddMealModal
+          isOpen={!!quickAddModalSection}
+          onClose={() => setQuickAddModalSection(null)}
+          targetMealType={quickAddModalSection}
+          onSelectRecipeToLog={(recipe) => {
+            if (onQuickAddMeal) {
+              onQuickAddMeal(recipe, quickAddModalSection);
+            }
+          }}
+          onNavigateToGenerator={() => onNavigate('generator')}
+        />
+      )}
     </motion.div>
   );
 };

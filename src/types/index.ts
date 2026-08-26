@@ -20,6 +20,7 @@ export interface MacroNutrients {
   protein: number;
   carbs: number;
   fat: number;
+  fiber: number;
 }
 
 export interface FoodSource {
@@ -104,10 +105,11 @@ export interface Recipe {
 
 export interface MealItem {
   id: string;
+  recipeId?: string;
   name: string;
   nativeName?: string;
   type: MealType;
-  cuisine: Cuisine;
+  cuisine: Cuisine | string;
   dietary: 'vegetarian' | 'non-veg' | 'eggitarian';
   oilLevel: OilLevel;
   macros: MacroNutrients;
@@ -118,6 +120,36 @@ export interface MealItem {
   recipeSteps: string[];
   ingredients: { name: string; amount: string; calories: number; protein: number }[];
   isFavorite?: boolean;
+  servings?: number;
+  loggedMealId?: string;
+  timestamp?: string;
+  nutritionSnapshot?: MacroNutritionSnapshot;
+}
+
+export interface LoggedMeal {
+  id: string;
+  recipeId: string;
+  recipeName: string;
+  mealType: 'breakfast' | 'lunch' | 'snack' | 'dinner';
+  servings: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+  timestamp: string;
+  nutritionSnapshot: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    fiber: number;
+  };
+  image?: string;
+  cuisine?: string;
+  dietary?: string;
+  oilLevel?: OilLevel;
+  description?: string;
 }
 
 export interface DailyNutritionTarget {
@@ -129,6 +161,25 @@ export interface DailyNutritionTarget {
   consumedCarbs: number;
   targetFat: number;
   consumedFat: number;
+  targetFiber: number;
+  consumedFiber: number;
+}
+
+export interface DailyHistoryRecord {
+  date: string; // YYYY-MM-DD
+  formattedDate: string; // e.g. "Aug 26"
+  dayName: string; // e.g. "Wed"
+  consumedCalories: number;
+  targetCalories: number;
+  consumedProtein: number;
+  targetProtein: number;
+  consumedCarbs: number;
+  targetCarbs: number;
+  consumedFat: number;
+  targetFat: number;
+  consumedFiber: number;
+  targetFiber: number;
+  meals: MealItem[];
 }
 
 export interface GeneratorFilters {

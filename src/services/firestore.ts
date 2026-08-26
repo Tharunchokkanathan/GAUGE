@@ -8,13 +8,32 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { MealItem, UserProfileData, DailyNutritionTarget, MealType } from '../types';
+import type { MealItem, UserProfileData, DailyNutritionTarget, MealType, DailyHistoryRecord } from '../types';
 import { MOCK_MEALS, MOCK_DAILY_NUTRITION } from '../data/mockData';
 
 // Format YYYY-MM-DD for date keys
 export const getTodayDateKey = (): string => {
   return new Date().toISOString().split('T')[0];
 };
+
+export const getDateKeyForDaysAgo = (daysAgo: number): string => {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+export const formatReadableDate = (dateKey: string): { formattedDate: string; dayName: string } => {
+  const parts = dateKey.split('-');
+  const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+  const formattedDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+  return { formattedDate, dayName };
+};
+
+import { OPEN_FOOD_DATABASE } from '../data/foodDatabase';
 
 /**
  * Shared Foods & Nutrition Database Service
@@ -34,7 +53,7 @@ export const FirestoreFoodService = {
     } catch (err) {
       console.warn('Firestore getFoods fallback:', err);
     }
-    return [];
+    return OPEN_FOOD_DATABASE;
   },
 
   // Get dataset metadata summary
@@ -47,7 +66,32 @@ export const FirestoreFoodService = {
     } catch (err) {
       console.warn('Firestore getDatasetMetadata fallback:', err);
     }
-    return null;
+    return {
+      totalItems: OPEN_FOOD_DATABASE.length,
+      sources: ['IFCT_2017 (ICMR-NIN India)', 'USDA FoodData Central'],
+      license: 'Public Domain / Free Open Access',
+      lastUpdated: new Date().toISOString()
+    };
+  },
+
+  // Seed raw open-access food items if database is empty
+  async seedFoodsIfEmpty(): Promise<void> {
+    try {
+      const snap = await getDocs(collection(db, 'foods'));
+      if (snap.empty || snap.size < OPEN_FOOD_DATABASE.length) {
+        for (const food of OPEN_FOOD_DATABASE) {
+          await setDoc(doc(db, 'foods', food.id), food, { merge: true });
+        }
+        await setDoc(doc(db, 'foodMetadata', 'dataset'), {
+          totalItems: OPEN_FOOD_DATABASE.length,
+          sources: ['IFCT_2017 (ICMR-NIN India)', 'USDA FoodData Central'],
+          license: 'Public Domain / Free Open Access',
+          lastUpdated: new Date().toISOString()
+        }, { merge: true });
+      }
+    } catch (err) {
+      console.warn('Firestore seedFoods warning:', err);
+    }
   }
 };
 
@@ -72,13 +116,13 @@ export const FirestoreRecipesService = {
     return MOCK_MEALS;
   },
 
-  // Seed recipes if shared database is unpopulated
+  // Seed recipes if shared database is unpopulated or missing new recipes
   async seedRecipesIfEmpty(): Promise<void> {
     try {
       const snap = await getDocs(collection(db, 'recipes'));
-      if (snap.empty) {
+      if (snap.empty || snap.size < MOCK_MEALS.length) {
         for (const meal of MOCK_MEALS) {
-          await setDoc(doc(db, 'recipes', meal.id), meal);
+          await setDoc(doc(db, 'recipes', meal.id), meal, { merge: true });
         }
       }
     } catch (err) {
@@ -154,8 +198,40 @@ export const FirestoreUserService = {
       const mealsSnap = await getDocs(collection(db, 'users', uid, 'dailyLogs', date, 'meals'));
       if (!mealsSnap.empty) {
         mealsSnap.forEach((docSnap) => {
-          const meal = docSnap.data() as MealItem;
-          const section = meal.type === 'all' ? 'breakfast' : meal.type;
+          const rawData = docSnap.data();
+          const meal: MealItem = {
+            id: docSnap.id,
+            recipeId: rawData.recipeId || docSnap.id.split('-')[0],
+            name: rawData.name || rawData.recipeName || 'Logged Meal',
+            type: rawData.mealType || rawData.type || 'breakfast',
+            cuisine: rawData.cuisine || 'south-indian',
+            dietary: rawData.dietary || 'vegetarian',
+            oilLevel: rawData.oilLevel || 'low',
+            servings: rawData.servings ?? 1,
+            macros: {
+              calories: rawData.calories ?? rawData.macros?.calories ?? 0,
+              protein: rawData.protein ?? rawData.macros?.protein ?? 0,
+              carbs: rawData.carbs ?? rawData.macros?.carbs ?? 0,
+              fat: rawData.fat ?? rawData.macros?.fat ?? 0,
+              fiber: rawData.fiber ?? rawData.macros?.fiber ?? 0
+            },
+            nutritionScore: rawData.nutritionScore || 90,
+            prepTimeMinutes: rawData.prepTimeMinutes || 15,
+            description: rawData.description || '',
+            image: rawData.image || 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=600&q=80',
+            recipeSteps: rawData.recipeSteps || [],
+            ingredients: rawData.ingredients || [],
+            timestamp: rawData.timestamp || new Date().toISOString(),
+            nutritionSnapshot: rawData.nutritionSnapshot || {
+              calories: rawData.calories ?? rawData.macros?.calories ?? 0,
+              protein: rawData.protein ?? rawData.macros?.protein ?? 0,
+              carbs: rawData.carbs ?? rawData.macros?.carbs ?? 0,
+              fat: rawData.fat ?? rawData.macros?.fat ?? 0,
+              fiber: rawData.fiber ?? rawData.macros?.fiber ?? 0
+            }
+          };
+
+          const section = (meal.type === 'all' ? 'breakfast' : meal.type) as MealType;
           if (mealsBySection[section]) {
             mealsBySection[section].push(meal);
           }
@@ -178,9 +254,74 @@ export const FirestoreUserService = {
   async addMealToLog(uid: string, date: string, meal: MealItem): Promise<void> {
     try {
       const mealRef = doc(db, 'users', uid, 'dailyLogs', date, 'meals', meal.id);
-      await setDoc(mealRef, meal);
+      const snapshot = {
+        calories: meal.macros.calories,
+        protein: meal.macros.protein,
+        carbs: meal.macros.carbs,
+        fat: meal.macros.fat,
+        fiber: meal.macros.fiber || 0
+      };
+
+      const mealPayload = {
+        id: meal.id,
+        recipeId: meal.recipeId || meal.id.split('-')[0],
+        recipeName: meal.name,
+        name: meal.name,
+        mealType: meal.type,
+        type: meal.type,
+        servings: meal.servings ?? 1,
+        calories: meal.macros.calories,
+        protein: meal.macros.protein,
+        carbs: meal.macros.carbs,
+        fat: meal.macros.fat,
+        fiber: meal.macros.fiber || 0,
+        timestamp: meal.timestamp || new Date().toISOString(),
+        nutritionSnapshot: snapshot,
+        image: meal.image || '',
+        cuisine: meal.cuisine || 'south-indian',
+        dietary: meal.dietary || 'vegetarian',
+        oilLevel: meal.oilLevel || 'low',
+        macros: meal.macros,
+        prepTimeMinutes: meal.prepTimeMinutes || 15,
+        nutritionScore: meal.nutritionScore || 90,
+        description: meal.description || '',
+        ingredients: meal.ingredients || [],
+        recipeSteps: meal.recipeSteps || []
+      };
+
+      await setDoc(mealRef, mealPayload);
     } catch (err) {
       console.warn('Firestore addMealToLog:', err);
+    }
+  },
+
+  async updateLoggedMeal(uid: string, date: string, meal: MealItem): Promise<void> {
+    try {
+      const mealRef = doc(db, 'users', uid, 'dailyLogs', date, 'meals', meal.id);
+      const snapshot = {
+        calories: meal.macros.calories,
+        protein: meal.macros.protein,
+        carbs: meal.macros.carbs,
+        fat: meal.macros.fat,
+        fiber: meal.macros.fiber || 0
+      };
+
+      await setDoc(mealRef, {
+        servings: meal.servings ?? 1,
+        calories: meal.macros.calories,
+        protein: meal.macros.protein,
+        carbs: meal.macros.carbs,
+        fat: meal.macros.fat,
+        fiber: meal.macros.fiber || 0,
+        mealType: meal.type,
+        type: meal.type,
+        macros: meal.macros,
+        oilLevel: meal.oilLevel || 'low',
+        nutritionSnapshot: snapshot,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    } catch (err) {
+      console.warn('Firestore updateLoggedMeal:', err);
     }
   },
 
@@ -191,6 +332,112 @@ export const FirestoreUserService = {
     } catch (err) {
       console.warn('Firestore removeMealFromLog:', err);
     }
+  },
+
+  // History Range Query: fetches past N days from users/{uid}/dailyLogs/{date}
+  async getDailyHistoryRange(uid: string, daysCount: number = 30): Promise<DailyHistoryRecord[]> {
+    const records: DailyHistoryRecord[] = [];
+    const targetCal = 2200;
+    const targetPro = 140;
+    const targetCarb = 220;
+    const targetFat = 60;
+    const targetFib = 35;
+
+    for (let i = 0; i < daysCount; i++) {
+      const dateKey = getDateKeyForDaysAgo(i);
+      const { formattedDate, dayName } = formatReadableDate(dateKey);
+
+      try {
+        const logRef = doc(db, 'users', uid, 'dailyLogs', dateKey);
+        const snap = await getDoc(logRef);
+        const mealsSnap = await getDocs(collection(db, 'users', uid, 'dailyLogs', dateKey, 'meals'));
+
+        const dayMeals: MealItem[] = [];
+        if (!mealsSnap.empty) {
+          mealsSnap.forEach((docSnap) => {
+            const rawData = docSnap.data();
+            dayMeals.push({
+              id: docSnap.id,
+              recipeId: rawData.recipeId || docSnap.id.split('-')[0],
+              name: rawData.name || rawData.recipeName || 'Logged Meal',
+              type: rawData.mealType || rawData.type || 'breakfast',
+              cuisine: rawData.cuisine || 'south-indian',
+              dietary: rawData.dietary || 'vegetarian',
+              oilLevel: rawData.oilLevel || 'low',
+              servings: rawData.servings ?? 1,
+              macros: {
+                calories: rawData.calories ?? rawData.macros?.calories ?? 0,
+                protein: rawData.protein ?? rawData.macros?.protein ?? 0,
+                carbs: rawData.carbs ?? rawData.macros?.carbs ?? 0,
+                fat: rawData.fat ?? rawData.macros?.fat ?? 0,
+                fiber: rawData.fiber ?? rawData.macros?.fiber ?? 0
+              },
+              nutritionScore: rawData.nutritionScore || 90,
+              prepTimeMinutes: rawData.prepTimeMinutes || 15,
+              description: rawData.description || '',
+              image: rawData.image || 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=600&q=80',
+              recipeSteps: rawData.recipeSteps || [],
+              ingredients: rawData.ingredients || [],
+              timestamp: rawData.timestamp || new Date().toISOString()
+            });
+          });
+        }
+
+        if (snap.exists()) {
+          const data = snap.data() as DailyNutritionTarget;
+          const consumedCalories = data.consumedCalories ?? dayMeals.reduce((a, b) => a + b.macros.calories, 0);
+          const consumedProtein = data.consumedProtein ?? dayMeals.reduce((a, b) => a + b.macros.protein, 0);
+          const consumedCarbs = data.consumedCarbs ?? dayMeals.reduce((a, b) => a + b.macros.carbs, 0);
+          const consumedFat = data.consumedFat ?? dayMeals.reduce((a, b) => a + b.macros.fat, 0);
+          const consumedFiber = data.consumedFiber ?? dayMeals.reduce((a, b) => a + (b.macros.fiber || 0), 0);
+
+          records.push({
+            date: dateKey,
+            formattedDate,
+            dayName,
+            consumedCalories,
+            targetCalories: data.targetCalories || targetCal,
+            consumedProtein,
+            targetProtein: data.targetProtein || targetPro,
+            consumedCarbs,
+            targetCarbs: data.targetCarbs || targetCarb,
+            consumedFat,
+            targetFat: data.targetFat || targetFat,
+            consumedFiber,
+            targetFiber: data.targetFiber || targetFib,
+            meals: dayMeals
+          });
+        } else {
+          // If no explicitly saved daily target doc but meals exist or empty
+          const consumedCalories = dayMeals.reduce((a, b) => a + b.macros.calories, 0);
+          const consumedProtein = dayMeals.reduce((a, b) => a + b.macros.protein, 0);
+          const consumedCarbs = dayMeals.reduce((a, b) => a + b.macros.carbs, 0);
+          const consumedFat = dayMeals.reduce((a, b) => a + b.macros.fat, 0);
+          const consumedFiber = dayMeals.reduce((a, b) => a + (b.macros.fiber || 0), 0);
+
+          records.push({
+            date: dateKey,
+            formattedDate,
+            dayName,
+            consumedCalories,
+            targetCalories: targetCal,
+            consumedProtein,
+            targetProtein: targetPro,
+            consumedCarbs,
+            targetCarbs: targetCarb,
+            consumedFat,
+            targetFat: targetFat,
+            consumedFiber,
+            targetFiber: targetFib,
+            meals: dayMeals
+          });
+        }
+      } catch (err) {
+        console.warn(`Firestore getDailyHistoryRange error for ${dateKey}:`, err);
+      }
+    }
+
+    return records;
   },
 
   // User Favorites: users/{uid}/favorites/{recipeId}

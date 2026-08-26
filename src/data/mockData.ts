@@ -8,7 +8,7 @@ export const MOCK_MEALS: MealItem[] = [
     cuisine: 'tamil',
     dietary: 'non-veg',
     oilLevel: 'low',
-    macros: { calories: 480, protein: 36, carbs: 42, fat: 12 },
+    macros: { calories: 480, protein: 36, carbs: 42, fat: 12, fiber: 5 },
     nutritionScore: 94,
     prepTimeMinutes: 20,
     description: 'Crisp fermented rice-lentil crepe stuffed with spiced shredded chicken breast cooked in minimal cold-pressed sesame oil.',
@@ -34,7 +34,7 @@ export const MOCK_MEALS: MealItem[] = [
     cuisine: 'tamil',
     dietary: 'eggitarian',
     oilLevel: 'low',
-    macros: { calories: 465, protein: 31, carbs: 48, fat: 14 },
+    macros: { calories: 465, protein: 31, carbs: 48, fat: 14, fiber: 8 },
     nutritionScore: 91,
     prepTimeMinutes: 25,
     description: 'Lentil-rich protein pancake made of chana dal, toor dal, and urad dal, topped with 2 whole country eggs and shallots.',
@@ -59,7 +59,7 @@ export const MOCK_MEALS: MealItem[] = [
     cuisine: 'tamil',
     dietary: 'non-veg',
     oilLevel: 'low',
-    macros: { calories: 495, protein: 42, carbs: 54, fat: 9 },
+    macros: { calories: 495, protein: 42, carbs: 54, fat: 9, fiber: 4 },
     nutritionScore: 96,
     prepTimeMinutes: 25,
     description: 'Steamed fluffy rice-black gram cakes paired with air-fried dry spiced chicken breast seasoned with curry leaves and black pepper.',
@@ -84,7 +84,7 @@ export const MOCK_MEALS: MealItem[] = [
     cuisine: 'andhra',
     dietary: 'vegetarian',
     oilLevel: 'low',
-    macros: { calories: 410, protein: 28, carbs: 52, fat: 8 },
+    macros: { calories: 410, protein: 28, carbs: 52, fat: 8, fiber: 10 },
     nutritionScore: 95,
     prepTimeMinutes: 15,
     description: 'Andhra-style whole green gram crepe infused with fresh ginger and cumin, stuffed with crumbled organic tofu and green chillies.',
@@ -108,7 +108,7 @@ export const MOCK_MEALS: MealItem[] = [
     cuisine: 'kerala',
     dietary: 'non-veg',
     oilLevel: 'low',
-    macros: { calories: 540, protein: 38, carbs: 64, fat: 12 },
+    macros: { calories: 540, protein: 38, carbs: 64, fat: 12, fiber: 6 },
     nutritionScore: 93,
     prepTimeMinutes: 30,
     description: 'Tangy Malabar seer fish cooked with Kudampuli (Garcinia cambogica) and light coconut milk, served over nutrient-rich Kerala red rice.',
@@ -133,7 +133,7 @@ export const MOCK_MEALS: MealItem[] = [
     cuisine: 'tamil',
     dietary: 'vegetarian',
     oilLevel: 'medium',
-    macros: { calories: 520, protein: 29, carbs: 45, fat: 22 },
+    macros: { calories: 520, protein: 29, carbs: 45, fat: 22, fiber: 5 },
     nutritionScore: 89,
     prepTimeMinutes: 25,
     description: 'Low-fat paneer cubes roasted in roasted Chettinad spice blend, accompanied by crispy unpolished brown rice crepe.',
@@ -157,7 +157,7 @@ export const MOCK_MEALS: MealItem[] = [
     cuisine: 'south-indian',
     dietary: 'vegetarian',
     oilLevel: 'low',
-    macros: { calories: 340, protein: 18, carbs: 46, fat: 8 },
+    macros: { calories: 340, protein: 18, carbs: 46, fat: 8, fiber: 9 },
     nutritionScore: 92,
     prepTimeMinutes: 20,
     description: 'Guilt-free air-fried black gram donuts crisped with pepper & curry leaves, drenched in thick drumstick toor dal sambar.',
@@ -180,7 +180,7 @@ export const MOCK_MEALS: MealItem[] = [
     cuisine: 'tamil',
     dietary: 'non-veg',
     oilLevel: 'low',
-    macros: { calories: 510, protein: 39, carbs: 41, fat: 16 },
+    macros: { calories: 510, protein: 39, carbs: 41, fat: 16, fiber: 6 },
     nutritionScore: 90,
     prepTimeMinutes: 35,
     description: 'Lean tender lamb/mutton slow cooked dry in black pepper and crushed garlic gravy, served alongside 2 calcium-packed finger millet dosas.',
@@ -204,7 +204,7 @@ export const MOCK_MEALS: MealItem[] = [
     cuisine: 'south-indian',
     dietary: 'vegetarian',
     oilLevel: 'low',
-    macros: { calories: 280, protein: 16, carbs: 40, fat: 5 },
+    macros: { calories: 280, protein: 16, carbs: 40, fat: 5, fiber: 12 },
     nutritionScore: 97,
     prepTimeMinutes: 10,
     description: 'Traditional temple-style steamed legume salad tempered with mustard seeds, curry leaves, ginger, and fresh scraped coconut.',
@@ -219,6 +219,213 @@ export const MOCK_MEALS: MealItem[] = [
       { name: 'Coconut & Tempering', amount: '15g', calories: 60, protein: 1 }
     ],
     isFavorite: true
+  },
+  {
+    id: 'm10',
+    name: 'Protein Oats Upma with Peanuts & Veggies',
+    type: 'breakfast',
+    cuisine: 'south-indian',
+    dietary: 'vegetarian',
+    oilLevel: 'low',
+    macros: { calories: 380, protein: 18, carbs: 54, fat: 10, fiber: 9 },
+    nutritionScore: 93,
+    prepTimeMinutes: 15,
+    description: 'Rolled oats cooked with mustard seeds, roasted peanuts, green peas, carrots, and curry leaves.',
+    image: 'https://images.unsplash.com/photo-1517673132405-a56a62b18caf?auto=format&fit=crop&w=600&q=80',
+    recipeSteps: [
+      'Dry roast 80g rolled oats for 3 minutes.',
+      'Temper 1 tsp oil with mustard seeds, green chillies, curry leaves, and 15g peanuts.',
+      'Sauté diced veggies, add water, bring to boil, and stir in oats until fluffy.'
+    ],
+    ingredients: [
+      { name: 'Rolled Oats', amount: '80g', calories: 280, protein: 11 },
+      { name: 'Roasted Peanuts', amount: '15g', calories: 85, protein: 4 },
+      { name: 'Veggies & Tempering', amount: '50g', calories: 15, protein: 3 }
+    ],
+    isFavorite: false
+  },
+  {
+    id: 'm11',
+    name: 'Double Egg Chettinad Omelette + Multi-Grain Toast',
+    type: 'breakfast',
+    cuisine: 'tamil',
+    dietary: 'eggitarian',
+    oilLevel: 'low',
+    macros: { calories: 390, protein: 26, carbs: 32, fat: 16, fiber: 5 },
+    nutritionScore: 92,
+    prepTimeMinutes: 12,
+    description: 'Fluffy 3-egg white + 1 whole egg omelette spiced with shallots, crushed pepper, and coriander, served with multi-grain toast.',
+    image: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=600&q=80',
+    recipeSteps: [
+      'Whisk eggs with shallots, green chillies, black pepper, and curry leaves.',
+      'Pour on hot skillet drizzled with 3ml oil.',
+      'Cook until set and serve with 2 toasted multi-grain bread slices.'
+    ],
+    ingredients: [
+      { name: 'Eggs (3 whites + 1 whole)', amount: '4 eggs', calories: 180, protein: 22 },
+      { name: 'Multi-Grain Toast', amount: '2 slices', calories: 170, protein: 4 }
+    ],
+    isFavorite: true
+  },
+  {
+    id: 'm12',
+    name: 'High-Protein Chicken Biryani (Low Oil)',
+    type: 'lunch',
+    cuisine: 'tamil',
+    dietary: 'non-veg',
+    oilLevel: 'low',
+    macros: { calories: 580, protein: 46, carbs: 68, fat: 12, fiber: 5 },
+    nutritionScore: 95,
+    prepTimeMinutes: 35,
+    description: 'Aromatic Seeraga Samba rice Dum cooked with succulent marinated chicken breast, mint, coriander, and curd.',
+    image: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=600&q=80',
+    recipeSteps: [
+      'Marinate 200g chicken breast in low-fat curd, ginger-garlic paste, chili powder, and biryani spices.',
+      'Layer half-boiled Seeraga Samba rice over chicken in a heavy bottom pot.',
+      'Cook covered on low flame (dum) for 20 minutes and serve with onion raita.'
+    ],
+    ingredients: [
+      { name: 'Chicken Breast', amount: '200g', calories: 260, protein: 42 },
+      { name: 'Seeraga Samba Rice', amount: '120g', calories: 270, protein: 4 }
+    ],
+    isFavorite: true
+  },
+  {
+    id: 'm13',
+    name: 'Soya Chunk Chukka Gravy + Curd Rice',
+    type: 'lunch',
+    cuisine: 'tamil',
+    dietary: 'vegetarian',
+    oilLevel: 'low',
+    macros: { calories: 470, protein: 34, carbs: 58, fat: 10, fiber: 8 },
+    nutritionScore: 94,
+    prepTimeMinutes: 25,
+    description: 'Spicy pepper-tempered soya chunks dry gravy accompanied by cool probiotic brown rice curd rice.',
+    image: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=600&q=80',
+    recipeSteps: [
+      'Boil 70g soya chunks, squeeze water, and toss in Chettinad pepper masala gravy.',
+      'Mix brown rice with fresh low-fat curd and temper with mustard seeds and curry leaves.',
+      'Serve spicy soya chukka side-by-side with chilled curd rice.'
+    ],
+    ingredients: [
+      { name: 'Soya Chunks', amount: '70g dry', calories: 235, protein: 31 },
+      { name: 'Brown Rice Curd Rice', amount: '180g', calories: 215, protein: 3 }
+    ],
+    isFavorite: false
+  },
+  {
+    id: 'm14',
+    name: 'Andhra Chilli Chicken + Brown Rice',
+    type: 'lunch',
+    cuisine: 'andhra',
+    dietary: 'non-veg',
+    oilLevel: 'low',
+    macros: { calories: 510, protein: 44, carbs: 52, fat: 11, fiber: 5 },
+    nutritionScore: 93,
+    prepTimeMinutes: 30,
+    description: 'Fiery Andhra green chilli chicken stir-fry served with fiber-dense steamed brown rice.',
+    image: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=600&q=80',
+    recipeSteps: [
+      'Sauté 200g boneless chicken breast with green chilli paste, ginger, garlic, and curry leaves.',
+      'Simmer until sauce thickens and chicken tenderizes.',
+      'Serve alongside steamed brown rice.'
+    ],
+    ingredients: [
+      { name: 'Chicken Breast', amount: '200g', calories: 260, protein: 41 },
+      { name: 'Brown Rice (Cooked)', amount: '170g', calories: 220, protein: 3 }
+    ],
+    isFavorite: true
+  },
+  {
+    id: 'm15',
+    name: 'Roasted Chana & Peanut Bhel',
+    type: 'snack',
+    cuisine: 'south-indian',
+    dietary: 'vegetarian',
+    oilLevel: 'none',
+    macros: { calories: 260, protein: 14, carbs: 36, fat: 6, fiber: 9 },
+    nutritionScore: 98,
+    prepTimeMinutes: 5,
+    description: 'Crunchy high-fiber snack made of roasted black chana, puffed rice, tomatoes, cucumbers, and lemon juice.',
+    image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=600&q=80',
+    recipeSteps: [
+      'Combine roasted chana, puffed rice, finely chopped onion, tomato, and green chilli.',
+      'Drizzle fresh lemon juice and toss with chaat masala and mint leaves.'
+    ],
+    ingredients: [
+      { name: 'Roasted Black Chana', amount: '60g', calories: 190, protein: 11 },
+      { name: 'Puffed Rice & Veggies', amount: '40g', calories: 70, protein: 3 }
+    ],
+    isFavorite: true
+  },
+  {
+    id: 'm16',
+    name: 'Boiled Egg Pepper Fry (3 Eggs)',
+    type: 'snack',
+    cuisine: 'tamil',
+    dietary: 'eggitarian',
+    oilLevel: 'low',
+    macros: { calories: 230, protein: 21, carbs: 4, fat: 14, fiber: 2 },
+    nutritionScore: 95,
+    prepTimeMinutes: 10,
+    description: 'Hard-boiled eggs tossed in a spicy black pepper, shallot, and curry leaf tempering.',
+    image: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=600&q=80',
+    recipeSteps: [
+      'Boil 3 eggs, peel, and cut into halves.',
+      'Temper 1 tsp sesame oil with mustard seeds, curry leaves, diced shallots, and coarse black pepper powder.',
+      'Toss egg halves gently for 2 minutes.'
+    ],
+    ingredients: [
+      { name: 'Whole Boiled Eggs', amount: '3 large', calories: 210, protein: 18 },
+      { name: 'Pepper & Oil Temper', amount: '10g', calories: 20, protein: 3 }
+    ],
+    isFavorite: false
+  },
+  {
+    id: 'm17',
+    name: 'Grilled Vanjaram Steak + Cauliflower Mash',
+    type: 'dinner',
+    cuisine: 'tamil',
+    dietary: 'non-veg',
+    oilLevel: 'low',
+    macros: { calories: 430, protein: 42, carbs: 14, fat: 22, fiber: 5 },
+    nutritionScore: 96,
+    prepTimeMinutes: 20,
+    description: 'King mackerel (Vanjaram) pan-grilled with south-indian spices served over creamy garlic cauliflower puree.',
+    image: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=600&q=80',
+    recipeSteps: [
+      'Marinate 180g Vanjaram fish steak in chilli, turmeric, lemon, and ginger paste.',
+      'Pan grill with 4ml oil for 4 minutes on each side.',
+      'Steam cauliflower and blend with garlic and pepper into a silky mash.'
+    ],
+    ingredients: [
+      { name: 'Vanjaram (King Mackerel)', amount: '180g', calories: 290, protein: 38 },
+      { name: 'Cauliflower Mash', amount: '150g', calories: 90, protein: 4 }
+    ],
+    isFavorite: true
+  },
+  {
+    id: 'm18',
+    name: 'Tofu Tikka Masala + Whole Wheat Phulka (2 pcs)',
+    type: 'dinner',
+    cuisine: 'south-indian',
+    dietary: 'vegetarian',
+    oilLevel: 'low',
+    macros: { calories: 420, protein: 27, carbs: 48, fat: 12, fiber: 7 },
+    nutritionScore: 91,
+    prepTimeMinutes: 25,
+    description: 'Tandoori marinated firm tofu cubes cooked in tomato-onion gravy, paired with oil-free wheat phulkas.',
+    image: 'https://images.unsplash.com/photo-1567188040759-fb8a883dc6d8?auto=format&fit=crop&w=600&q=80',
+    recipeSteps: [
+      'Sear marinated tofu cubes until golden.',
+      'Simmer tomato-onion gravy with kasuri methi and low-fat cream.',
+      'Serve warm with 2 freshly puffed phulkas.'
+    ],
+    ingredients: [
+      { name: 'Firm Tofu', amount: '150g', calories: 180, protein: 18 },
+      { name: 'Whole Wheat Phulka', amount: '2 pcs', calories: 180, protein: 6 }
+    ],
+    isFavorite: false
   }
 ];
 
@@ -246,12 +453,14 @@ export const MOCK_DAILY_NUTRITION: DailyNutritionTarget = {
   targetCarbs: 220,
   consumedCarbs: 144,
   targetFat: 60,
-  consumedFat: 38
+  consumedFat: 38,
+  targetFiber: 35,
+  consumedFiber: 23
 };
 
 export const MOCK_LOGGED_MEALS = {
   breakfast: [MOCK_MEALS[0]], // High-Protein Chicken Dosa
   lunch: [MOCK_MEALS[4]],    // Kerala Fish Curry + Red Rice
   snack: [MOCK_MEALS[6]],    // Air-Fried Medu Vada
-  dinner: []
+  dinner: [MOCK_MEALS[7]]    // Mutton Chukka + Ragi Dosa
 };
