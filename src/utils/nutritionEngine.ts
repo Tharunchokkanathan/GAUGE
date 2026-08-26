@@ -1,4 +1,4 @@
-import type { FoodItem, Recipe, RecipeIngredient, MacroNutritionSnapshot } from '../types';
+import type { FoodItem, Recipe, MacroNutritionSnapshot } from '../types';
 
 /**
  * Calculates the exact nutritional contribution of a specific quantity (in grams) of a food item.
@@ -66,17 +66,17 @@ export function calculateRecipeNutrition(
     totals.carbohydratesG += contrib.carbohydratesG;
     totals.fatG += contrib.fatG;
 
-    if (contrib.fiberG !== null && totals.fiberG !== null) {
-      totals.fiberG = (totals.fiberG || 0) + contrib.fiberG;
+    if (contrib.fiberG !== null && contrib.fiberG !== undefined && totals.fiberG !== null && totals.fiberG !== undefined) {
+      totals.fiberG = totals.fiberG + contrib.fiberG;
     }
-    if (contrib.sodiumMg !== null && totals.sodiumMg !== null) {
-      totals.sodiumMg = (totals.sodiumMg || 0) + contrib.sodiumMg;
+    if (contrib.sodiumMg !== null && contrib.sodiumMg !== undefined && totals.sodiumMg !== null && totals.sodiumMg !== undefined) {
+      totals.sodiumMg = totals.sodiumMg + contrib.sodiumMg;
     }
-    if (contrib.calciumMg !== null && totals.calciumMg !== null) {
-      totals.calciumMg = (totals.calciumMg || 0) + contrib.calciumMg;
+    if (contrib.calciumMg !== null && contrib.calciumMg !== undefined && totals.calciumMg !== null && totals.calciumMg !== undefined) {
+      totals.calciumMg = totals.calciumMg + contrib.calciumMg;
     }
-    if (contrib.ironMg !== null && totals.ironMg !== null) {
-      totals.ironMg = (totals.ironMg || 0) + contrib.ironMg;
+    if (contrib.ironMg !== null && contrib.ironMg !== undefined && totals.ironMg !== null && totals.ironMg !== undefined) {
+      totals.ironMg = totals.ironMg + contrib.ironMg;
     }
   });
 

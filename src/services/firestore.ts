@@ -9,7 +9,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { MealItem, UserProfileData, DailyNutritionTarget, MealType } from '../types';
-import { MOCK_MEALS, MOCK_USER_PROFILE, MOCK_DAILY_NUTRITION } from '../data/mockData';
+import { MOCK_MEALS, MOCK_DAILY_NUTRITION } from '../data/mockData';
 
 // Format YYYY-MM-DD for date keys
 export const getTodayDateKey = (): string => {
@@ -92,7 +92,7 @@ export const FirestoreRecipesService = {
  */
 export const FirestoreUserService = {
   // Profile: users/{uid}/profile/data
-  async getProfile(uid: string): Promise<UserProfileData> {
+  async getProfile(uid: string): Promise<UserProfileData | null> {
     try {
       const profileRef = doc(db, 'users', uid, 'profile', 'data');
       const snap = await getDoc(profileRef);
@@ -102,7 +102,7 @@ export const FirestoreUserService = {
     } catch (err) {
       console.warn('Firestore getProfile fallback:', err);
     }
-    return MOCK_USER_PROFILE;
+    return null;
   },
 
   async saveProfile(uid: string, profile: UserProfileData): Promise<void> {

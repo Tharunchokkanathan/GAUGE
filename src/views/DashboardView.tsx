@@ -13,7 +13,7 @@ import {
   TrendingUp,
   Compass
 } from 'lucide-react';
-import type { Route, MealItem, DailyNutritionTarget, MealType } from '../types';
+import type { Route, MealItem, DailyNutritionTarget, MealType, UserProfileData } from '../types';
 import { GlassCard } from '../components/ui/GlassCard';
 import { Button } from '../components/ui/Button';
 import { ProgressRing } from '../components/ui/ProgressRing';
@@ -28,6 +28,7 @@ interface DashboardViewProps {
   dailyNutrition: DailyNutritionTarget;
   loggedMeals: Record<MealType, MealItem[]>;
   onAddMealClick: (mealType: MealType) => void;
+  userProfile?: UserProfileData;
 }
 
 const containerVariants = {
@@ -50,7 +51,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onViewMealDetails,
   dailyNutrition,
   loggedMeals,
-  onAddMealClick
+  onAddMealClick,
+  userProfile
 }) => {
   const caloriesRemaining = Math.max(0, dailyNutrition.targetCalories - dailyNutrition.consumedCalories);
   const proteinRemaining = Math.max(0, dailyNutrition.targetProtein - dailyNutrition.consumedProtein);
@@ -64,6 +66,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     { type: 'snack', title: 'Evening Snack', icon: <Cookie className="w-4 h-4 text-teal-400" />, time: '05:00 PM - 06:30 PM' },
     { type: 'dinner', title: 'Dinner', icon: <Moon className="w-4 h-4 text-cyan-400" />, time: '08:00 PM - 10:00 PM' }
   ];
+
+  const firstName = userProfile?.name ? userProfile.name.split(' ')[0] : 'User';
 
   return (
     <motion.div
@@ -80,7 +84,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             Today, {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
           </div>
           <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
-            Good morning, Tharun 👋
+            Good morning, {firstName} 👋
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
             Here is your daily macro targets & South Indian nutrition progress.

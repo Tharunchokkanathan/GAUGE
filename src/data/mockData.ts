@@ -229,12 +229,13 @@ export const MOCK_USER_PROFILE: UserProfileData = {
   gender: 'male',
   heightCm: 178,
   weightKg: 76,
-  activityLevel: 'active',
+  activityLevel: 'moderately_active',
   goal: 'muscle_gain',
   targetCalories: 2200,
   targetProtein: 140,
   dietaryPreference: 'non-veg',
-  oilPreference: 'low'
+  oilPreference: 'low',
+  isOnboarded: true
 };
 
 export const MOCK_DAILY_NUTRITION: DailyNutritionTarget = {

@@ -38,6 +38,8 @@ export function App() {
   const [toastSubmessage, setToastSubmessage] = useState<string>('');
   const [isToastVisible, setIsToastVisible] = useState<boolean>(false);
 
+  const [isProfileLoading, setIsProfileLoading] = useState<boolean>(false);
+
   // Seed shared Firestore recipes on boot
   useEffect(() => {
     FirestoreRecipesService.seedRecipesIfEmpty();
@@ -46,10 +48,27 @@ export function App() {
   // Fetch isolated user profile and daily logs when authenticated user UID changes
   useEffect(() => {
     if (user?.uid) {
+      setIsProfileLoading(true);
       const today = getTodayDateKey();
+      
       FirestoreUserService.getProfile(user.uid).then((prof) => {
-        if (prof) setUserProfile(prof);
+        if (prof) {
+          setUserProfile(prof);
+          setDailyNutrition((prev) => ({
+            ...prev,
+            targetCalories: prof.targetCalories,
+            targetProtein: prof.targetProtein
+          }));
+        } else {
+          // New user / missing profile -> Redirect to Onboarding!
+          setCurrentRoute('onboarding');
+        }
+      }).catch((err) => {
+        console.warn('Error loading user profile:', err);
+      }).finally(() => {
+        setIsProfileLoading(false);
       });
+
       FirestoreUserService.getDailyNutrition(user.uid, today).then((nut) => {
         if (nut) setDailyNutrition(nut);
       });
@@ -170,7 +189,7 @@ export function App() {
       await FirestoreUserService.saveDailyNutrition(user.uid, today, updatedNutrition);
     }
 
-    triggerToast('Profile Targets Updated', `${profile.targetCalories} kcal / ${profile.targetProtein}g protein saved to Firestore`);
+    triggerToast('Profile Targets Saved', `${profile.targetCalories} kcal / ${profile.targetProtein}g protein saved to Firestore`);
   };
 
   return (
@@ -190,72 +209,82 @@ export function App() {
         <TopHeader currentRoute={currentRoute} onNavigate={handleNavigate} />
 
         <main className="flex-1 p-4 sm:p-6 md:p-8 pb-24 lg:pb-8 relative z-10">
-          <AnimatePresence mode="wait">
-            <PageTransition routeKey={currentRoute}>
-              {currentRoute === 'landing' && (
-                <LandingView onNavigate={handleNavigate} />
-              )}
+          {isProfileLoading ? (
+            <div className="max-w-4xl mx-auto space-y-6 pt-12 text-center">
+              <div className="inline-block animate-spin text-emerald-400 font-extrabold text-2xl">⏳</div>
+              <p className="text-sm text-slate-400">Loading your personalized nutrition profile from Firestore...</p>
+            </div>
+          ) : (
+            <AnimatePresence mode="wait">
+              <PageTransition routeKey={currentRoute}>
+                {currentRoute === 'landing' && (
+                  <LandingView onNavigate={handleNavigate} />
+                )}
 
-              {currentRoute === 'login' && (
-                <LoginView onNavigate={handleNavigate} />
-              )}
+                {currentRoute === 'login' && (
+                  <LoginView onNavigate={handleNavigate} />
+                )}
 
-              {currentRoute === 'register' && (
-                <RegisterView onNavigate={handleNavigate} />
-              )}
+                {currentRoute === 'register' && (
+                  <RegisterView onNavigate={handleNavigate} />
+                )}
 
-              {currentRoute === 'onboarding' && (
-                <OnboardingView
-                  onNavigate={handleNavigate}
-                  onSaveProfile={handleSaveProfile}
-                />
-              )}
+                {currentRoute === 'onboarding' && (
+                  <OnboardingView
+                    onNavigate={handleNavigate}
+                    onSaveProfile={handleSaveProfile}
+                    initialProfile={userProfile}
+                  />
+                )}
 
-              {currentRoute === 'dashboard' && (
-                <DashboardView
-                  onNavigate={handleNavigate}
-                  onViewMealDetails={handleViewMealDetails}
-                  dailyNutrition={dailyNutrition}
-                  loggedMeals={loggedMeals}
-                  onAddMealClick={() => handleNavigate('generator')}
-                />
-              )}
+                {currentRoute === 'dashboard' && (
+                  <DashboardView
+                    onNavigate={handleNavigate}
+                    onViewMealDetails={handleViewMealDetails}
+                    dailyNutrition={dailyNutrition}
+                    loggedMeals={loggedMeals}
+                    onAddMealClick={() => handleNavigate('generator')}
+                    userProfile={userProfile}
+                  />
+                )}
 
-              {currentRoute === 'generator' && (
-                <GeneratorView
-                  onViewMealDetails={handleViewMealDetails}
-                  onAddMealToPlan={handleAddMealToPlan}
-                />
-              )}
+                {currentRoute === 'generator' && (
+                  <GeneratorView
+                    onViewMealDetails={handleViewMealDetails}
+                    onAddMealToPlan={handleAddMealToPlan}
+                  />
+                )}
 
-              {currentRoute === 'plan' && (
-                <PlanView
-                  onNavigate={handleNavigate}
-                  loggedMeals={loggedMeals}
-                  onRemoveMeal={handleRemoveMeal}
-                />
-              )}
+                {currentRoute === 'plan' && (
+                  <PlanView
+                    onNavigate={handleNavigate}
+                    loggedMeals={loggedMeals}
+                    onRemoveMeal={handleRemoveMeal}
+                  />
+                )}
 
-              {currentRoute === 'history' && (
-                <HistoryView />
-              )}
+                {currentRoute === 'history' && (
+                  <HistoryView />
+                )}
 
-              {currentRoute === 'favorites' && (
-                <FavoritesView
-                  onNavigate={handleNavigate}
-                  onViewMealDetails={handleViewMealDetails}
-                  onAddMealToPlan={handleAddMealToPlan}
-                />
-              )}
+                {currentRoute === 'favorites' && (
+                  <FavoritesView
+                    onNavigate={handleNavigate}
+                    onViewMealDetails={handleViewMealDetails}
+                    onAddMealToPlan={handleAddMealToPlan}
+                  />
+                )}
 
-              {currentRoute === 'profile' && (
-                <ProfileView
-                  onNavigate={handleNavigate}
-                  profile={userProfile}
-                />
-              )}
-            </PageTransition>
-          </AnimatePresence>
+                {currentRoute === 'profile' && (
+                  <ProfileView
+                    onNavigate={handleNavigate}
+                    profile={userProfile}
+                    onSaveProfile={handleSaveProfile}
+                  />
+                )}
+              </PageTransition>
+            </AnimatePresence>
+          )}
         </main>
       </div>
 

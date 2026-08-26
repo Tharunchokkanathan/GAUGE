@@ -141,6 +141,19 @@ export interface GeneratorFilters {
   searchQuery: string;
 }
 
+export type ActivityLevel = 
+  | 'sedentary' 
+  | 'lightly_active' 
+  | 'moderately_active' 
+  | 'very_active' 
+  | 'extra_active';
+
+export type UserGoal = 
+  | 'fat_loss' 
+  | 'maintenance' 
+  | 'muscle_gain' 
+  | 'body_recomposition';
+
 export interface UserProfileData {
   name: string;
   email: string;
@@ -148,10 +161,12 @@ export interface UserProfileData {
   gender: 'male' | 'female' | 'other';
   heightCm: number;
   weightKg: number;
-  activityLevel: 'sedentary' | 'moderate' | 'active' | 'very_active';
-  goal: 'weight_loss' | 'muscle_gain' | 'maintenance';
+  activityLevel: ActivityLevel;
+  goal: UserGoal;
   targetCalories: number;
   targetProtein: number;
   dietaryPreference: string;
   oilPreference: OilLevel;
+  isOnboarded?: boolean;
 }
+
