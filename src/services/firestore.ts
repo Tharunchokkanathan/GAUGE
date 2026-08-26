@@ -335,13 +335,18 @@ export const FirestoreUserService = {
   },
 
   // History Range Query: fetches past N days from users/{uid}/dailyLogs/{date}
-  async getDailyHistoryRange(uid: string, daysCount: number = 30): Promise<DailyHistoryRecord[]> {
+  async getDailyHistoryRange(
+    uid: string, 
+    daysCount: number = 30,
+    userTargetCal?: number,
+    userTargetPro?: number
+  ): Promise<DailyHistoryRecord[]> {
     const records: DailyHistoryRecord[] = [];
-    const targetCal = 2200;
-    const targetPro = 140;
-    const targetCarb = 220;
-    const targetFat = 60;
-    const targetFib = 35;
+    const defaultCal = userTargetCal || 2200;
+    const defaultPro = userTargetPro || 140;
+    const defaultCarb = 220;
+    const defaultFat = 60;
+    const defaultFib = 35;
 
     for (let i = 0; i < daysCount; i++) {
       const dateKey = getDateKeyForDaysAgo(i);
@@ -393,22 +398,22 @@ export const FirestoreUserService = {
 
           records.push({
             date: dateKey,
-            formattedDate,
-            dayName,
+            formattedDate: i === 0 ? 'Today' : formattedDate,
+            dayName: i === 0 ? 'Today' : dayName,
             consumedCalories,
-            targetCalories: data.targetCalories || targetCal,
+            targetCalories: data.targetCalories || defaultCal,
             consumedProtein,
-            targetProtein: data.targetProtein || targetPro,
+            targetProtein: data.targetProtein || defaultPro,
             consumedCarbs,
-            targetCarbs: data.targetCarbs || targetCarb,
+            targetCarbs: data.targetCarbs || defaultCarb,
             consumedFat,
-            targetFat: data.targetFat || targetFat,
+            targetFat: data.targetFat || defaultFat,
             consumedFiber,
-            targetFiber: data.targetFiber || targetFib,
+            targetFiber: data.targetFiber || defaultFib,
             meals: dayMeals
           });
         } else {
-          // If no explicitly saved daily target doc but meals exist or empty
+          // Real unlogged date from Firestore: 0 consumed, user's target
           const consumedCalories = dayMeals.reduce((a, b) => a + b.macros.calories, 0);
           const consumedProtein = dayMeals.reduce((a, b) => a + b.macros.protein, 0);
           const consumedCarbs = dayMeals.reduce((a, b) => a + b.macros.carbs, 0);
@@ -417,23 +422,39 @@ export const FirestoreUserService = {
 
           records.push({
             date: dateKey,
-            formattedDate,
-            dayName,
+            formattedDate: i === 0 ? 'Today' : formattedDate,
+            dayName: i === 0 ? 'Today' : dayName,
             consumedCalories,
-            targetCalories: targetCal,
+            targetCalories: defaultCal,
             consumedProtein,
-            targetProtein: targetPro,
+            targetProtein: defaultPro,
             consumedCarbs,
-            targetCarbs: targetCarb,
+            targetCarbs: defaultCarb,
             consumedFat,
-            targetFat: targetFat,
+            targetFat: defaultFat,
             consumedFiber,
-            targetFiber: targetFib,
+            targetFiber: defaultFib,
             meals: dayMeals
           });
         }
       } catch (err) {
         console.warn(`Firestore getDailyHistoryRange error for ${dateKey}:`, err);
+        records.push({
+          date: dateKey,
+          formattedDate: i === 0 ? 'Today' : formattedDate,
+          dayName: i === 0 ? 'Today' : dayName,
+          consumedCalories: 0,
+          targetCalories: defaultCal,
+          consumedProtein: 0,
+          targetProtein: defaultPro,
+          consumedCarbs: 0,
+          targetCarbs: defaultCarb,
+          consumedFat: 0,
+          targetFat: defaultFat,
+          consumedFiber: 0,
+          targetFiber: defaultFib,
+          meals: []
+        });
       }
     }
 

@@ -12,7 +12,10 @@ import {
   Utensils,
   Wheat,
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  Target,
+  Calendar,
+  AlertCircle
 } from 'lucide-react';
 import type { DailyHistoryRecord, MealItem } from '../types';
 import { GlassCard } from '../components/ui/GlassCard';
@@ -29,13 +32,13 @@ import {
   getDateKeyForDaysAgo, 
   formatReadableDate 
 } from '../services/firestore';
-import { MOCK_MEALS } from '../data/mockData';
 
 interface HistoryViewProps {
   onViewMealDetails?: (meal: MealItem) => void;
 }
 
-const createDefault30DayHistory = (): DailyHistoryRecord[] => {
+// Generate real empty history structure for 30 days (0 consumed unless logged in Firestore)
+const createEmpty30DayHistory = (targetCal: number = 2200, targetPro: number = 140): DailyHistoryRecord[] => {
   const records: DailyHistoryRecord[] = [];
   for (let i = 0; i < 30; i++) {
     const dateKey = getDateKeyForDaysAgo(i);
@@ -45,54 +48,62 @@ const createDefault30DayHistory = (): DailyHistoryRecord[] => {
       date: dateKey,
       formattedDate: i === 0 ? 'Today' : formattedDate,
       dayName: i === 0 ? 'Today' : dayName,
-      consumedCalories: i === 0 ? 2150 : Math.floor(1900 + Math.sin(i * 0.8) * 250),
-      targetCalories: 2200,
-      consumedProtein: i === 0 ? 142 : Math.floor(125 + Math.cos(i * 0.8) * 20),
-      targetProtein: 140,
-      consumedCarbs: i === 0 ? 210 : Math.floor(195 + Math.sin(i * 0.8) * 15),
+      consumedCalories: 0,
+      targetCalories: targetCal,
+      consumedProtein: 0,
+      targetProtein: targetPro,
+      consumedCarbs: 0,
       targetCarbs: 220,
-      consumedFat: i === 0 ? 58 : Math.floor(52 + Math.cos(i * 0.8) * 6),
+      consumedFat: 0,
       targetFat: 60,
-      consumedFiber: i === 0 ? 32 : Math.floor(28 + Math.sin(i * 0.8) * 4),
+      consumedFiber: 0,
       targetFiber: 35,
-      meals: i === 0 ? [MOCK_MEALS[0], MOCK_MEALS[4], MOCK_MEALS[6]] : i % 2 === 0 ? [MOCK_MEALS[1], MOCK_MEALS[5]] : [MOCK_MEALS[2]]
+      meals: []
     });
   }
   return records;
 };
 
 export const HistoryView: React.FC<HistoryViewProps> = ({ onViewMealDetails }) => {
-  const { user } = useAuth();
-  const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
-  const [historyRecords, setHistoryRecords] = useState<DailyHistoryRecord[]>(createDefault30DayHistory());
+  const { user, userProfile } = useAuth();
+  const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [historyRecords, setHistoryRecords] = useState<DailyHistoryRecord[]>(
+    createEmpty30DayHistory(userProfile?.targetCalories, userProfile?.targetProtein)
+  );
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedDayIdx, setSelectedDayIdx] = useState<number>(0); // 0 = Today
 
   useEffect(() => {
-    if (user?.uid) {
+    let isMounted = true;
+    const fetchHistory = async () => {
       setIsLoading(true);
-      FirestoreUserService.getDailyHistoryRange(user.uid, 30).then((res) => {
-        if (res && res.length > 0) {
-          // Merge real Firestore records with default dates if needed
-          const defaults = createDefault30DayHistory();
-          const merged = defaults.map((defRecord) => {
-            const realMatch = res.find((r) => r.date === defRecord.date);
-            if (realMatch && (realMatch.meals.length > 0 || realMatch.consumedCalories > 0)) {
-              return realMatch;
-            }
-            return defRecord;
-          });
-          setHistoryRecords(merged);
+      const targetCal = userProfile?.targetCalories || 2200;
+      const targetPro = userProfile?.targetProtein || 140;
+
+      if (user?.uid) {
+        try {
+          const res = await FirestoreUserService.getDailyHistoryRange(user.uid, 30, targetCal, targetPro);
+          if (isMounted && res && res.length > 0) {
+            setHistoryRecords(res);
+          }
+        } catch (err) {
+          console.warn('Error fetching Firestore history range:', err);
+        } finally {
+          if (isMounted) setIsLoading(false);
         }
-      }).catch((err) => {
-        console.warn('Error fetching history range:', err);
-      }).finally(() => {
-        setIsLoading(false);
-      });
-    } else {
-      setIsLoading(false);
-    }
-  }, [user?.uid]);
+      } else {
+        if (isMounted) {
+          setHistoryRecords(createEmpty30DayHistory(targetCal, targetPro));
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchHistory();
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.uid, userProfile?.targetCalories, userProfile?.targetProtein]);
 
   // Selected Daily Record
   const currentDailyRecord: DailyHistoryRecord = historyRecords[selectedDayIdx] || historyRecords[0] || {
@@ -100,9 +111,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onViewMealDetails }) =
     formattedDate: 'Today',
     dayName: 'Today',
     consumedCalories: 0,
-    targetCalories: 2200,
+    targetCalories: userProfile?.targetCalories || 2200,
     consumedProtein: 0,
-    targetProtein: 140,
+    targetProtein: userProfile?.targetProtein || 140,
     consumedCarbs: 0,
     targetCarbs: 220,
     consumedFat: 0,
@@ -112,30 +123,24 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onViewMealDetails }) =
     meals: []
   };
 
-  // Weekly Statistics (Past 7 Days)
+  // WEEKLY STATS (Past 7 Days)
   const weeklyRecords = historyRecords.slice(0, 7);
-  const weeklyActiveDays = weeklyRecords.filter((r) => r.meals.length > 0 || r.consumedCalories > 0);
-  const weeklyDivider = Math.max(1, weeklyActiveDays.length);
+  const avgWeeklyCalories = Math.round(weeklyRecords.reduce((sum, r) => sum + r.consumedCalories, 0) / 7);
+  const avgWeeklyProtein = Math.round(weeklyRecords.reduce((sum, r) => sum + r.consumedProtein, 0) / 7);
 
-  const avgWeeklyCalories = Math.round(weeklyRecords.reduce((sum, r) => sum + r.consumedCalories, 0) / weeklyDivider);
-  const avgWeeklyProtein = Math.round(weeklyRecords.reduce((sum, r) => sum + r.consumedProtein, 0) / weeklyDivider);
-
-  // Target consistency % (days meeting >= 85% of protein or within calorie target)
-  const consistentDaysCount = weeklyRecords.filter((r) => {
-    if (r.meals.length === 0 && r.consumedCalories === 0) return false;
-    const proteinMet = r.consumedProtein >= r.targetProtein * 0.85;
-    const calInRange = r.consumedCalories >= r.targetCalories * 0.8 && r.consumedCalories <= r.targetCalories * 1.15;
-    return proteinMet || calInRange;
+  // Target consistency (Count of days where calories & protein met >= 80% of target and <= 115% of calorie target)
+  const weeklyConsistentDaysCount = weeklyRecords.filter((r) => {
+    if (r.consumedCalories === 0 && r.consumedProtein === 0) return false;
+    const proteinHit = r.consumedProtein >= r.targetProtein * 0.85;
+    const caloriesHit = r.consumedCalories >= r.targetCalories * 0.8 && r.consumedCalories <= r.targetCalories * 1.15;
+    return proteinHit || caloriesHit;
   }).length;
 
-  const weeklyConsistencyPct = Math.round((consistentDaysCount / Math.max(1, weeklyRecords.length)) * 100);
+  const weeklyConsistencyPct = Math.round((weeklyConsistentDaysCount / 7) * 100);
 
-  // Monthly Statistics (Past 30 Days)
-  const monthlyActiveDays = historyRecords.filter((r) => r.meals.length > 0 || r.consumedCalories > 0);
-  const monthlyDivider = Math.max(1, monthlyActiveDays.length);
-
-  const avgMonthlyCalories = Math.round(historyRecords.reduce((sum, r) => sum + r.consumedCalories, 0) / monthlyDivider);
-  const avgMonthlyProtein = Math.round(historyRecords.reduce((sum, r) => sum + r.consumedProtein, 0) / monthlyDivider);
+  // MONTHLY STATS (Past 30 Days)
+  const avgMonthlyCalories = Math.round(historyRecords.reduce((sum, r) => sum + r.consumedCalories, 0) / 30);
+  const avgMonthlyProtein = Math.round(historyRecords.reduce((sum, r) => sum + r.consumedProtein, 0) / 30);
   const totalLoggedMeals = historyRecords.reduce((sum, r) => sum + r.meals.length, 0);
 
   // Best Protein Day
@@ -144,6 +149,14 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onViewMealDetails }) =
     if (!bestProteinRecord || r.consumedProtein > bestProteinRecord.consumedProtein) {
       bestProteinRecord = r;
     }
+  });
+
+  // Most Consistent Days Count & List
+  const monthlyConsistentRecords = historyRecords.filter((r) => {
+    if (r.consumedCalories === 0 && r.consumedProtein === 0) return false;
+    const proteinHit = r.consumedProtein >= r.targetProtein * 0.85;
+    const caloriesHit = r.consumedCalories >= r.targetCalories * 0.8 && r.consumedCalories <= r.targetCalories * 1.15;
+    return proteinHit && caloriesHit;
   });
 
   return (
@@ -162,16 +175,16 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onViewMealDetails }) =
         {/* View Mode Switcher (Daily, Weekly, Monthly) */}
         <div className="flex items-center gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800 self-start">
           {[
-            { id: 'daily', label: 'Daily Log' },
-            { id: 'weekly', label: 'Weekly View' },
-            { id: 'monthly', label: 'Monthly Analytics' }
+            { id: 'daily', label: 'Daily' },
+            { id: 'weekly', label: 'Weekly' },
+            { id: 'monthly', label: 'Monthly' }
           ].map((mode) => (
             <button
               key={mode.id}
               onClick={() => setViewMode(mode.id as any)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 viewMode === mode.id
-                  ? 'bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-500/20'
+                  ? 'bg-emerald-500 text-slate-950 font-extrabold shadow-md shadow-emerald-500/20'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -184,11 +197,11 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onViewMealDetails }) =
       {isLoading ? (
         <div className="py-16 text-center text-xs text-slate-400 space-y-3">
           <div className="inline-block animate-spin text-emerald-400 text-2xl">⏳</div>
-          <p>Fetching real nutrition logs from Firestore...</p>
+          <p>Loading real nutrition history logs from Firestore...</p>
         </div>
       ) : (
         <AnimatePresence mode="wait">
-          {/* DAILY VIEW */}
+          {/* ==================== DAILY VIEW ==================== */}
           {viewMode === 'daily' && (
             <motion.div
               key="daily"
@@ -214,8 +227,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onViewMealDetails }) =
                     <CalendarDays className="w-3.5 h-3.5" />
                     {selectedDayIdx === 0 ? 'Today' : selectedDayIdx === 1 ? 'Yesterday' : currentDailyRecord.dayName}
                   </div>
-                  <div className="text-base font-extrabold text-white">
-                    {currentDailyRecord.formattedDate} ({currentDailyRecord.date})
+                  <div className="text-base sm:text-lg font-extrabold text-white">
+                    {currentDailyRecord.formattedDate} <span className="text-xs text-slate-400 font-mono">({currentDailyRecord.date})</span>
                   </div>
                 </div>
 
@@ -231,14 +244,14 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onViewMealDetails }) =
                 </Button>
               </GlassCard>
 
-              {/* Day Macro Stats Breakdown */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+              {/* Day Macro Progress Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
                   title="Calories Consumed"
                   value={`${currentDailyRecord.consumedCalories} kcal`}
                   subtext={`Target: ${currentDailyRecord.targetCalories} kcal`}
                   icon={<Flame className="w-5 h-5 text-amber-400" />}
-                  trend={`${Math.round((currentDailyRecord.consumedCalories / currentDailyRecord.targetCalories) * 100)}% Target`}
+                  trend={`${Math.round((currentDailyRecord.consumedCalories / Math.max(1, currentDailyRecord.targetCalories)) * 100)}% Target`}
                   color="amber"
                 />
 
@@ -247,7 +260,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onViewMealDetails }) =
                   value={`${currentDailyRecord.consumedProtein}g`}
                   subtext={`Target: ${currentDailyRecord.targetProtein}g`}
                   icon={<Dumbbell className="w-5 h-5 text-emerald-400" />}
-                  trend={`${Math.round((currentDailyRecord.consumedProtein / currentDailyRecord.targetProtein) * 100)}% Target`}
+                  trend={`${Math.round((currentDailyRecord.consumedProtein / Math.max(1, currentDailyRecord.targetProtein)) * 100)}% Target`}
                   color="emerald"
                 />
 
@@ -276,14 +289,16 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onViewMealDetails }) =
                   <h2 className="text-base font-bold text-white flex items-center gap-2">
                     <Utensils className="w-4 h-4 text-emerald-400" /> Meals Eaten on {currentDailyRecord.formattedDate}
                   </h2>
-                  <span className="text-xs text-slate-400 font-mono">
-                    {currentDailyRecord.meals.length} item{currentDailyRecord.meals.length !== 1 ? 's' : ''}
+                  <span className="text-xs text-slate-400 font-mono bg-slate-900 px-2.5 py-1 rounded-md border border-slate-800">
+                    {currentDailyRecord.meals.length} meal{currentDailyRecord.meals.length !== 1 ? 's' : ''} logged
                   </span>
                 </div>
 
                 {currentDailyRecord.meals.length === 0 ? (
-                  <div className="py-8 text-center text-xs text-slate-500 italic space-y-1">
-                    <p>No logged meals recorded for this day in Firestore.</p>
+                  <div className="py-12 text-center text-slate-400 space-y-2">
+                    <AlertCircle className="w-8 h-8 text-slate-600 mx-auto" />
+                    <p className="text-sm font-semibold text-slate-300">No meals logged for this date in Firestore.</p>
+                    <p className="text-xs text-slate-500">Log meals on the Dashboard or Generator to view them here.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -301,7 +316,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onViewMealDetails }) =
             </motion.div>
           )}
 
-          {/* WEEKLY VIEW */}
+          {/* ==================== WEEKLY VIEW ==================== */}
           {viewMode === 'weekly' && (
             <motion.div
               key="weekly"
@@ -310,70 +325,77 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onViewMealDetails }) =
               exit={{ opacity: 0, y: -10 }}
               className="space-y-6"
             >
-              {/* Overview Stat Cards */}
+              {/* Summary Metrics */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <StatCard
-                  title="Weekly Avg Calories"
-                  value={`${avgWeeklyCalories} kcal`}
-                  subtext="Daily Target: 2200 kcal"
+                  title="Average Calories"
+                  value={`${avgWeeklyCalories} kcal/day`}
+                  subtext={`Target: ${userProfile?.targetCalories || 2200} kcal`}
                   icon={<Flame className="w-5 h-5 text-amber-400" />}
-                  trend="Past 7 Days"
+                  trend="Past 7 Days Avg"
                   color="amber"
                 />
 
                 <StatCard
-                  title="Weekly Avg Protein"
-                  value={`${avgWeeklyProtein}g`}
-                  subtext="Daily Target: 140g"
+                  title="Average Protein"
+                  value={`${avgWeeklyProtein} g/day`}
+                  subtext={`Target: ${userProfile?.targetProtein || 140} g`}
                   icon={<Dumbbell className="w-5 h-5 text-emerald-400" />}
-                  trend="Past 7 Days"
+                  trend="Past 7 Days Avg"
                   color="emerald"
                 />
 
                 <StatCard
                   title="Target Consistency"
                   value={`${weeklyConsistencyPct}%`}
-                  subtext={`${consistentDaysCount} / 7 Days On Target`}
+                  subtext={`${weeklyConsistentDaysCount} / 7 Days On Target`}
                   icon={<Award className="w-5 h-5 text-cyan-400" />}
-                  trend="Adherence Rate"
+                  trend="Adherence Score"
                   color="cyan"
                 />
               </div>
 
-              {/* Weekly Chart */}
+              {/* Weekly Lightweight SVG Bar Chart */}
               <GlassCard variant="gradient" className="p-6 space-y-4 border-slate-800">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-2">
+                  <TrendingUp className="w-4 h-4 text-emerald-400" /> Past 7 Days Macro Chart
+                </h3>
                 <WeeklyBarChart records={weeklyRecords} />
               </GlassCard>
 
-              {/* Daily List Breakdown for Past 7 Days */}
+              {/* Day-by-Day List Breakdown (Each Day: Calories & Protein) */}
               <GlassCard variant="gradient" className="p-6 space-y-4 border-slate-800">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                   <h2 className="text-base font-bold text-white flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-emerald-400" /> Daily Breakdown (Past 7 Days)
+                    <Calendar className="w-4 h-4 text-emerald-400" /> Daily Log Breakdown (Past 7 Days)
                   </h2>
-                  <span className="text-xs text-slate-400 font-mono">Firestore Logs</span>
+                  <span className="text-xs text-slate-400 font-mono">Firestore Stream</span>
                 </div>
 
                 <div className="space-y-3">
                   {weeklyRecords.map((item) => {
-                    const calPerc = Math.round((item.consumedCalories / item.targetCalories) * 100);
-                    const proPerc = Math.round((item.consumedProtein / item.targetProtein) * 100);
+                    const calPerc = Math.round((item.consumedCalories / Math.max(1, item.targetCalories)) * 100);
+                    const proPerc = Math.round((item.consumedProtein / Math.max(1, item.targetProtein)) * 100);
 
                     return (
                       <div key={item.date} className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
-                        <div className="flex items-center justify-between text-xs font-semibold">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
                           <div className="flex items-center gap-2">
                             <span className="text-white font-bold">{item.dayName}</span>
-                            <span className="text-slate-400 font-normal">{item.formattedDate}</span>
-                            {item.meals.length > 0 && (
-                              <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
+                            <span className="text-slate-400 font-mono text-[11px]">{item.formattedDate}</span>
+                            {item.meals.length > 0 ? (
+                              <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1 font-mono">
                                 <CheckCircle2 className="w-3 h-3" /> {item.meals.length} logged
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-slate-500 bg-slate-800/50 px-2 py-0.5 rounded font-mono">
+                                No logs
                               </span>
                             )}
                           </div>
 
                           <div className="flex items-center gap-3 font-mono text-[11px]">
-                            <span className="text-amber-400">{item.consumedCalories} / {item.targetCalories} kcal ({calPerc}%)</span>
+                            <span className="text-amber-400 font-semibold">{item.consumedCalories} / {item.targetCalories} kcal ({calPerc}%)</span>
                             <span className="text-emerald-400 font-bold">{item.consumedProtein} / {item.targetProtein}g pro ({proPerc}%)</span>
                           </div>
                         </div>
@@ -402,7 +424,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onViewMealDetails }) =
             </motion.div>
           )}
 
-          {/* MONTHLY VIEW */}
+          {/* ==================== MONTHLY VIEW ==================== */}
           {viewMode === 'monthly' && (
             <motion.div
               key="monthly"
@@ -411,49 +433,84 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onViewMealDetails }) =
               exit={{ opacity: 0, y: -10 }}
               className="space-y-6"
             >
-              {/* Overview Stat Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+              {/* Monthly Stat Overview Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <StatCard
-                  title="30-Day Avg Calories"
+                  title="Average Calories"
                   value={`${avgMonthlyCalories} kcal`}
-                  subtext="Target: 2200 kcal/day"
+                  subtext={`Target: ${userProfile?.targetCalories || 2200} kcal/day`}
                   icon={<Flame className="w-5 h-5 text-amber-400" />}
-                  trend="Monthly Average"
+                  trend="30-Day Average"
                   color="amber"
                 />
 
                 <StatCard
-                  title="30-Day Avg Protein"
+                  title="Average Protein"
                   value={`${avgMonthlyProtein}g`}
-                  subtext="Target: 140g/day"
+                  subtext={`Target: ${userProfile?.targetProtein || 140} g/day`}
                   icon={<Dumbbell className="w-5 h-5 text-emerald-400" />}
-                  trend="Monthly Average"
+                  trend="30-Day Average"
                   color="emerald"
                 />
 
                 <StatCard
                   title="Total Logged Meals"
-                  value={`${totalLoggedMeals} Meals`}
-                  subtext="Over past 30 days"
+                  value={`${totalLoggedMeals}`}
+                  subtext="Across 30 days"
                   icon={<Utensils className="w-5 h-5 text-teal-400" />}
-                  trend={`${monthlyActiveDays.length} Active Days`}
+                  trend="Total Count"
                   color="teal"
                 />
 
                 <StatCard
                   title="Best Protein Day"
                   value={bestProteinRecord ? `${(bestProteinRecord as DailyHistoryRecord).consumedProtein}g` : '0g'}
-                  subtext={bestProteinRecord ? (bestProteinRecord as DailyHistoryRecord).formattedDate : 'No data'}
+                  subtext={bestProteinRecord && (bestProteinRecord as DailyHistoryRecord).consumedProtein > 0 ? (bestProteinRecord as DailyHistoryRecord).formattedDate : 'No record'}
                   icon={<Sparkles className="w-5 h-5 text-cyan-400" />}
-                  trend="Peak High"
+                  trend="Highest Protein"
                   color="cyan"
+                />
+
+                <StatCard
+                  title="Most Consistent Days"
+                  value={`${monthlyConsistentRecords.length} Days`}
+                  subtext="Hit target thresholds"
+                  icon={<Target className="w-5 h-5 text-emerald-400" />}
+                  trend={`${Math.round((monthlyConsistentRecords.length / 30) * 100)}% Monthly Rate`}
+                  color="emerald"
                 />
               </div>
 
-              {/* Monthly Line Trend Chart */}
+              {/* Monthly Line Trend SVG Chart */}
               <GlassCard variant="gradient" className="p-6 space-y-4 border-slate-800">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-2">
+                  <TrendingUp className="w-4 h-4 text-emerald-400" /> 30-Day Nutrition Trend Analytics
+                </h3>
                 <MonthlyLineChart records={historyRecords} />
               </GlassCard>
+
+              {/* Highlights of Consistent Days */}
+              {monthlyConsistentRecords.length > 0 && (
+                <GlassCard variant="gradient" className="p-6 space-y-3 border-slate-800">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Consistent Days Showcase
+                  </h3>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {monthlyConsistentRecords.map((rec) => (
+                      <div
+                        key={rec.date}
+                        className="bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl text-xs font-mono text-emerald-300 flex items-center gap-2"
+                      >
+                        <span className="font-bold text-white">{rec.formattedDate}</span>
+                        <span>•</span>
+                        <span>{rec.consumedCalories} kcal</span>
+                        <span>•</span>
+                        <span className="font-bold">{rec.consumedProtein}g pro</span>
+                      </div>
+                    ))}
+                  </div>
+                </GlassCard>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -461,3 +518,5 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ onViewMealDetails }) =
     </div>
   );
 };
+
+export default HistoryView;
