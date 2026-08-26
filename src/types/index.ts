@@ -120,6 +120,8 @@ export interface MealItem {
   recipeSteps: string[];
   ingredients: { name: string; amount: string; calories: number; protein: number }[];
   isFavorite?: boolean;
+  isCustom?: boolean;
+  createdBy?: string;
   servings?: number;
   loggedMealId?: string;
   timestamp?: string;

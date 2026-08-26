@@ -487,5 +487,45 @@ export const FirestoreUserService = {
     } catch (err) {
       console.warn('Firestore toggleFavorite:', err);
     }
+  },
+
+  // Custom Recipes: users/{uid}/customRecipes/{recipeId}
+  async getCustomRecipes(uid: string): Promise<MealItem[]> {
+    try {
+      const snap = await getDocs(collection(db, 'users', uid, 'customRecipes'));
+      if (!snap.empty) {
+        const recipes: MealItem[] = [];
+        snap.forEach((docSnap) => {
+          recipes.push(docSnap.data() as MealItem);
+        });
+        return recipes;
+      }
+    } catch (err) {
+      console.warn('Firestore getCustomRecipes fallback:', err);
+    }
+    return [];
+  },
+
+  async saveCustomRecipe(uid: string, recipe: MealItem): Promise<void> {
+    try {
+      const recipeRef = doc(db, 'users', uid, 'customRecipes', recipe.id);
+      await setDoc(recipeRef, {
+        ...recipe,
+        isCustom: true,
+        createdBy: uid,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    } catch (err) {
+      console.warn('Firestore saveCustomRecipe error:', err);
+    }
+  },
+
+  async deleteCustomRecipe(uid: string, recipeId: string): Promise<void> {
+    try {
+      const recipeRef = doc(db, 'users', uid, 'customRecipes', recipeId);
+      await deleteDoc(recipeRef);
+    } catch (err) {
+      console.warn('Firestore deleteCustomRecipe error:', err);
+    }
   }
 };

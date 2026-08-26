@@ -21,8 +21,10 @@ import { Select } from '../components/ui/Select';
 import { Button } from '../components/ui/Button';
 import { MealCard } from '../components/ui/MealCard';
 import { LoadingSkeleton } from '../components/ui/LoadingSkeleton';
-import { FirestoreRecipesService } from '../services/firestore';
+import { FirestoreRecipesService, FirestoreUserService } from '../services/firestore';
 import { recommendMeals, type GeneratorFilterState, type RankedMealItem } from '../utils/recommendationEngine';
+
+import { useAuth } from '../context/AuthContext';
 
 interface GeneratorViewProps {
   onViewMealDetails: (meal: MealItem) => void;
@@ -50,6 +52,7 @@ export const GeneratorView: React.FC<GeneratorViewProps> = ({
   onAddMealToPlan,
   userProfile
 }) => {
+  const { user } = useAuth();
   const [recipes, setRecipes] = useState<MealItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRegenerating, setIsRegenerating] = useState<boolean>(false);
@@ -69,25 +72,38 @@ export const GeneratorView: React.FC<GeneratorViewProps> = ({
 
   const [favorites, setFavorites] = useState<Set<string>>(new Set(['m1', 'm2', 'm4', 'm5', 'm7', 'm9']));
 
-  // Fetch Firestore Recipes on Mount
+  // Fetch Firestore Standard Recipes & User Custom Recipes on Mount
   useEffect(() => {
     let isMounted = true;
     setIsLoading(true);
 
-    FirestoreRecipesService.getRecipes().then((fetched) => {
-      if (isMounted) {
-        setRecipes(fetched);
-        setIsLoading(false);
+    const loadAllRecipes = async () => {
+      try {
+        const standardRecipes = await FirestoreRecipesService.getRecipes();
+        let customRecipes: MealItem[] = [];
+        if (user?.uid) {
+          customRecipes = await FirestoreUserService.getCustomRecipes(user.uid);
+        }
+        if (isMounted) {
+          const merged = [
+            ...customRecipes.map((c) => ({ ...c, isCustom: true })),
+            ...standardRecipes
+          ];
+          setRecipes(merged);
+        }
+      } catch (err) {
+        console.warn('Error loading recipes in GeneratorView:', err);
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
-    }).catch((err) => {
-      console.warn('Firestore getRecipes error in GeneratorView:', err);
-      if (isMounted) setIsLoading(false);
-    });
+    };
+
+    loadAllRecipes();
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [user?.uid]);
 
   const handleToggleFavorite = (meal: MealItem) => {
     setFavorites((prev) => {

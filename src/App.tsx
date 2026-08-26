@@ -47,9 +47,14 @@ export function App() {
 
   const [isProfileLoading, setIsProfileLoading] = useState<boolean>(false);
 
+  // Favorites & Custom Recipes Global State
+  const [userFavorites, setUserFavorites] = useState<string[]>(['m1', 'm2', 'm4', 'm5']);
+  const [customRecipesList, setCustomRecipesList] = useState<MealItem[]>([]);
+
   // Seed shared Firestore recipes on boot
   useEffect(() => {
     FirestoreRecipesService.seedRecipesIfEmpty();
+    FirestoreFoodService.seedFoodsIfEmpty();
   }, []);
 
   // Recalculate consumed macro totals from logged meals
@@ -74,7 +79,7 @@ export function App() {
     };
   };
 
-  // Fetch isolated user profile and daily logs when authenticated user UID changes
+  // Fetch isolated user profile, daily logs, favorites, and custom recipes when authenticated user UID changes
   useEffect(() => {
     if (user?.uid) {
       setIsProfileLoading(true);
@@ -100,8 +105,10 @@ export function App() {
 
       Promise.all([
         FirestoreUserService.getDailyNutrition(user.uid, today),
-        FirestoreUserService.getLoggedMeals(user.uid, today)
-      ]).then(([nut, meals]) => {
+        FirestoreUserService.getLoggedMeals(user.uid, today),
+        FirestoreUserService.getFavorites(user.uid),
+        FirestoreUserService.getCustomRecipes(user.uid)
+      ]).then(([nut, meals, favs, customReps]) => {
         if (meals) {
           setLoggedMeals(meals);
           if (nut) {
@@ -110,6 +117,8 @@ export function App() {
         } else if (nut) {
           setDailyNutrition(nut);
         }
+        if (favs) setUserFavorites(favs);
+        if (customReps) setCustomRecipesList(customReps);
       });
     }
   }, [user?.uid, setUserProfile]);
@@ -378,6 +387,25 @@ export function App() {
                     onNavigate={handleNavigate}
                     onViewMealDetails={handleViewMealDetails}
                     onAddMealToPlan={handleAddMealToPlan}
+                    userFavorites={userFavorites}
+                    onToggleFavoriteGlobal={(recipeId) => {
+                      setUserFavorites((prev) =>
+                        prev.includes(recipeId) ? prev.filter((id) => id !== recipeId) : [...prev, recipeId]
+                      );
+                    }}
+                    customRecipesList={customRecipesList}
+                    onSaveCustomRecipeGlobal={(recipe) => {
+                      setCustomRecipesList((prev) => {
+                        const idx = prev.findIndex((r) => r.id === recipe.id);
+                        if (idx >= 0) return prev.map((r) => (r.id === recipe.id ? recipe : r));
+                        return [recipe, ...prev];
+                      });
+                      triggerToast('Custom Recipe Saved', `${recipe.name} has been saved to your custom recipes collection.`);
+                    }}
+                    onDeleteCustomRecipeGlobal={(recipeId) => {
+                      setCustomRecipesList((prev) => prev.filter((r) => r.id !== recipeId));
+                      triggerToast('Custom Recipe Deleted', 'The custom recipe was removed.');
+                    }}
                   />
                 )}
 

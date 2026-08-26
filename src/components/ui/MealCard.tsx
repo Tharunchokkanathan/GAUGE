@@ -11,6 +11,8 @@ interface MealCardProps {
   onAdd?: (meal: MealItem) => void;
   onViewDetails?: (meal: MealItem) => void;
   onToggleFavorite?: (meal: MealItem) => void;
+  onEditCustom?: (meal: MealItem) => void;
+  onDeleteCustom?: (meal: MealItem) => void;
   compact?: boolean;
 }
 
@@ -19,6 +21,8 @@ export const MealCard: React.FC<MealCardProps> = ({
   onAdd,
   onViewDetails,
   onToggleFavorite,
+  onEditCustom,
+  onDeleteCustom,
   compact = false
 }) => {
   const shouldReduceMotion = useReducedMotion();
@@ -49,10 +53,16 @@ export const MealCard: React.FC<MealCardProps> = ({
         {/* Top Floating Badges */}
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
           <div className="flex items-center gap-1.5 backdrop-blur-md bg-slate-950/70 p-1 rounded-xl border border-white/10">
+            {meal.isCustom ? (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-500/30 text-purple-300 border border-purple-500/40 uppercase tracking-wide">
+                My Recipe
+              </span>
+            ) : (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                GAUGE Recipe
+              </span>
+            )}
             {getOilBadge(meal.oilLevel)}
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-800/80 text-slate-200 capitalize">
-              {meal.dietary}
-            </span>
           </div>
 
           {onToggleFavorite && (
@@ -138,12 +148,12 @@ export const MealCard: React.FC<MealCardProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2 pt-1">
+        <div className="flex flex-wrap items-center gap-2 pt-1">
           {onViewDetails && (
             <Button
               variant="secondary"
               size="sm"
-              className="flex-1"
+              className="flex-1 min-w-[75px]"
               icon={<Info className="w-3.5 h-3.5" />}
               onClick={() => onViewDetails(meal)}
             >
@@ -151,11 +161,33 @@ export const MealCard: React.FC<MealCardProps> = ({
             </Button>
           )}
 
+          {meal.isCustom && onEditCustom && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-purple-500/40 text-purple-300 hover:bg-purple-500/20"
+              onClick={() => onEditCustom(meal)}
+            >
+              Edit
+            </Button>
+          )}
+
+          {meal.isCustom && onDeleteCustom && (
+            <Button
+              variant="danger"
+              size="sm"
+              className="px-2"
+              onClick={() => onDeleteCustom(meal)}
+            >
+              Delete
+            </Button>
+          )}
+
           {onAdd && (
             <Button
               variant="primary"
               size="sm"
-              className="flex-1"
+              className="flex-1 min-w-[85px]"
               icon={<Plus className="w-3.5 h-3.5" />}
               onClick={() => onAdd(meal)}
             >
