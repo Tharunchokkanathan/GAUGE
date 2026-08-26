@@ -10,6 +10,8 @@ import { CustomRecipeModal } from '../components/recipes/CustomRecipeModal';
 import { useAuth } from '../context/AuthContext';
 import { FirestoreUserService } from '../services/firestore';
 
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
+
 interface FavoritesViewProps {
   onNavigate: (route: Route) => void;
   onViewMealDetails: (meal: MealItem) => void;
@@ -35,6 +37,9 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
   const [activeTab, setActiveTab] = useState<'all' | 'favorites' | 'custom'>('all');
   const [isCustomModalOpen, setIsCustomModalOpen] = useState<boolean>(false);
   const [editingCustomMeal, setEditingCustomMeal] = useState<MealItem | null>(null);
+
+  // Delete Confirmation State
+  const [recipeToDelete, setRecipeToDelete] = useState<MealItem | null>(null);
 
   const [localFavorites, setLocalFavorites] = useState<string[]>(userFavorites);
   const [localCustomRecipes, setLocalCustomRecipes] = useState<MealItem[]>(customRecipesList);
@@ -99,7 +104,9 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
     setEditingCustomMeal(null);
   };
 
-  const handleDeleteCustomRecipe = async (meal: MealItem) => {
+  const confirmDeleteCustomRecipe = async () => {
+    if (!recipeToDelete) return;
+    const meal = recipeToDelete;
     const updated = localCustomRecipes.filter((r) => r.id !== meal.id);
     setLocalCustomRecipes(updated);
 
@@ -110,6 +117,7 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
     if (user?.uid) {
       await FirestoreUserService.deleteCustomRecipe(user.uid, meal.id);
     }
+    setRecipeToDelete(null);
   };
 
   // Combine GAUGE catalog with user custom recipes
@@ -253,7 +261,7 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
                     setEditingCustomMeal(m);
                     setIsCustomModalOpen(true);
                   }}
-                  onDeleteCustom={handleDeleteCustomRecipe}
+                  onDeleteCustom={(m) => setRecipeToDelete(m)}
                 />
               </motion.div>
             ))}
@@ -270,6 +278,18 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
         }}
         onSaveRecipe={handleSaveCustomRecipe}
         editingRecipe={editingCustomMeal}
+      />
+
+      {/* Delete Recipe Confirmation Dialog */}
+      <ConfirmationModal
+        isOpen={!!recipeToDelete}
+        title="Delete Custom Recipe"
+        message={`Are you sure you want to delete "${recipeToDelete?.name}"? This action cannot be undone.`}
+        confirmLabel="Delete Recipe"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={confirmDeleteCustomRecipe}
+        onCancel={() => setRecipeToDelete(null)}
       />
     </div>
   );

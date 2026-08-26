@@ -1,8 +1,10 @@
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { CalendarDays, Flame, Dumbbell, CheckCircle2, Trash2, Plus, Sparkles } from 'lucide-react';
 import type { Route, MealItem, MealType } from '../types';
 import { GlassCard } from '../components/ui/GlassCard';
 import { Button } from '../components/ui/Button';
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
 
 interface PlanViewProps {
   onNavigate: (route: Route) => void;
@@ -25,6 +27,8 @@ export const PlanView: React.FC<PlanViewProps> = ({
   loggedMeals,
   onRemoveMeal
 }) => {
+  const [mealToRemove, setMealToRemove] = useState<{ sectionKey: MealType; meal: MealItem } | null>(null);
+
   const allLogged = Object.values(loggedMeals).flat();
   const totalCalories = allLogged.reduce((sum, m) => sum + m.macros.calories, 0);
   const totalProtein = allLogged.reduce((sum, m) => sum + m.macros.protein, 0);
@@ -37,6 +41,13 @@ export const PlanView: React.FC<PlanViewProps> = ({
     { key: 'snack', label: 'Evening Snack', time: '05:30 PM' },
     { key: 'dinner', label: 'Dinner', time: '08:30 PM' }
   ];
+
+  const confirmRemoveMeal = () => {
+    if (mealToRemove && onRemoveMeal) {
+      onRemoveMeal(mealToRemove.sectionKey, mealToRemove.meal.id);
+    }
+    setMealToRemove(null);
+  };
 
   return (
     <motion.div
@@ -152,7 +163,7 @@ export const PlanView: React.FC<PlanViewProps> = ({
                           </span>
                           {onRemoveMeal && (
                             <button
-                              onClick={() => onRemoveMeal(section.key, meal.id)}
+                              onClick={() => setMealToRemove({ sectionKey: section.key, meal })}
                               className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-rose-400"
                               aria-label={`Remove ${meal.name} from plan`}
                               title="Remove meal"
@@ -170,6 +181,18 @@ export const PlanView: React.FC<PlanViewProps> = ({
           );
         })}
       </div>
+
+      {/* Confirmation Modal for Meal Removal */}
+      <ConfirmationModal
+        isOpen={!!mealToRemove}
+        title="Remove Meal from Plan"
+        message={`Are you sure you want to remove "${mealToRemove?.meal.name}" from your ${mealToRemove?.sectionKey.toUpperCase()} schedule?`}
+        confirmLabel="Remove Meal"
+        cancelLabel="Keep Meal"
+        variant="warning"
+        onConfirm={confirmRemoveMeal}
+        onCancel={() => setMealToRemove(null)}
+      />
     </motion.div>
   );
 };
