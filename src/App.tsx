@@ -252,6 +252,7 @@ export function App() {
                   <GeneratorView
                     onViewMealDetails={handleViewMealDetails}
                     onAddMealToPlan={handleAddMealToPlan}
+                    userProfile={userProfile}
                   />
                 )}
 
