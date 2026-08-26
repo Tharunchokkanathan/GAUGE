@@ -195,16 +195,16 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={isEditing ? `Edit Portion: ${meal.name}` : meal.name} maxWidth="lg">
       <div className="space-y-6 pb-2">
-        {/* Banner image & details */}
-        <div className="relative h-48 rounded-2xl overflow-hidden border border-slate-800">
-          <img src={meal.image} alt={meal.name} className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
-          
-          <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs">
-            <span className="font-semibold text-emerald-400 bg-slate-950/80 backdrop-blur-md px-3 py-1 rounded-lg border border-emerald-500/30">
-              {String(meal.cuisine).toUpperCase()} CUISINE
+        {/* Sleek Metadata Header (Image Removed) */}
+        <div className="flex items-center justify-between gap-2 p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 text-xs">
+          <span className="font-semibold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20">
+            {String(meal.cuisine).toUpperCase()} CUISINE
+          </span>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-slate-300 bg-slate-800 px-3 py-1 rounded-lg border border-slate-700 flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5 text-slate-400" /> {meal.prepTimeMinutes} mins
             </span>
-            <span className="font-mono font-bold text-amber-300 bg-slate-950/80 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 flex items-center gap-1">
+            <span className="font-mono font-bold text-amber-300 bg-amber-500/10 px-3 py-1 rounded-lg border border-amber-500/20 flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5 text-emerald-400" /> Score: {meal.nutritionScore}/100
             </span>
           </div>

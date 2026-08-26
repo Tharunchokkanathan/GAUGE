@@ -197,7 +197,7 @@ export const CustomRecipeModal: React.FC<CustomRecipeModalProps> = ({
       nutritionScore: Math.min(98, Math.max(70, Math.round(80 + (calculatedProtein / 10) - (calculatedFat / 5)))),
       prepTimeMinutes: 20,
       description: description.trim() || `Custom macro recipe with ${calculatedProtein}g protein & ${calculatedCalories} kcal.`,
-      image: editingRecipe?.image || 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=600&q=80',
+      image: '',
       recipeSteps: recipeStepsText.split('\n').filter((s) => s.trim().length > 0),
       ingredients: selectedIngredients.map((ing) => ({
         name: ing.name,

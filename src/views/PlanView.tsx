@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { CalendarDays, Flame, Dumbbell, CheckCircle2, Trash2, Plus, Sparkles } from 'lucide-react';
+import { CalendarDays, Flame, Dumbbell, CheckCircle2, Trash2, Plus, Sparkles, Utensils } from 'lucide-react';
 import type { Route, MealItem, MealType } from '../types';
 import { GlassCard } from '../components/ui/GlassCard';
 import { Button } from '../components/ui/Button';
@@ -148,7 +148,9 @@ export const PlanView: React.FC<PlanViewProps> = ({
                         className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 gap-3"
                       >
                         <div className="flex items-center gap-3">
-                          <img src={meal.image} alt={meal.name} className="w-12 h-12 rounded-xl object-cover shrink-0" />
+                          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                            <Utensils className="w-5 h-5" />
+                          </div>
                           <div>
                             <h4 className="font-bold text-sm text-white">{meal.name}</h4>
                             <span className="text-xs text-slate-400 font-mono">
