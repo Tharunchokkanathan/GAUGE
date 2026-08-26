@@ -22,6 +22,7 @@ import { HistoryView } from './views/HistoryView';
 import { FavoritesView } from './views/FavoritesView';
 import { ProfileView } from './views/ProfileView';
 import { MealDetailModal } from './views/MealDetailModal';
+import { PwaInstallPrompt } from './components/pwa/PwaInstallPrompt';
 
 export function App() {
   const { user, userProfile, setUserProfile } = useAuth();
@@ -446,6 +447,9 @@ export function App() {
         isVisible={isToastVisible}
         onClose={() => setIsToastVisible(false)}
       />
+
+      {/* PWA Install Banner for Android & Desktop */}
+      <PwaInstallPrompt />
     </div>
   );
 }
