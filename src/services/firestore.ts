@@ -17,6 +17,41 @@ export const getTodayDateKey = (): string => {
 };
 
 /**
+ * Shared Foods & Nutrition Database Service
+ */
+export const FirestoreFoodService = {
+  // Get all normalized food items
+  async getFoods(): Promise<any[]> {
+    try {
+      const snap = await getDocs(collection(db, 'foods'));
+      if (!snap.empty) {
+        const foods: any[] = [];
+        snap.forEach((docSnap) => {
+          foods.push(docSnap.data());
+        });
+        return foods;
+      }
+    } catch (err) {
+      console.warn('Firestore getFoods fallback:', err);
+    }
+    return [];
+  },
+
+  // Get dataset metadata summary
+  async getDatasetMetadata(): Promise<any | null> {
+    try {
+      const docSnap = await getDoc(doc(db, 'foodMetadata', 'dataset'));
+      if (docSnap.exists()) {
+        return docSnap.data();
+      }
+    } catch (err) {
+      console.warn('Firestore getDatasetMetadata fallback:', err);
+    }
+    return null;
+  }
+};
+
+/**
  * Shared Recipes Database Service
  */
 export const FirestoreRecipesService = {

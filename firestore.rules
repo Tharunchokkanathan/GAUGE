@@ -2,15 +2,22 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Shared recipe & food database: Readable by any authenticated user
+    // Shared recipe database: Readable by any authenticated user
     match /recipes/{recipeId} {
       allow read: if request.auth != null;
-      allow write: if false; // Only admin SDK can write shared recipes
+      allow write: if false; // Only admin/import process can write shared recipes
     }
 
+    // Shared food nutrition database: Readable by any authenticated user
     match /foods/{foodId} {
       allow read: if request.auth != null;
-      allow write: if false; // Only admin SDK can write shared foods
+      allow write: if false; // Only admin/import process can write shared foods
+    }
+
+    // Shared dataset metadata: Readable by any authenticated user
+    match /foodMetadata/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Only admin/import process can write metadata
     }
 
     // User-specific data: Strictly isolated by Firebase Auth UID
