@@ -104,11 +104,14 @@ export function App() {
   const handleAddMealToPlan = async (meal: MealItem, portionMultiplier: number = 1, oil: OilLevel = 'low') => {
     const mealCategory: MealType = meal.type === 'all' ? 'breakfast' : meal.type;
 
-    const oilDelta = oil === 'low' ? -35 : oil === 'medium' ? 0 : 35;
-    const scaledCalories = Math.round(meal.macros.calories * portionMultiplier + oilDelta);
+    const oilGrams = oil === 'none' ? 0 : oil === 'low' ? 5 : oil === 'medium' ? 10 : 15;
+    const baseOilGrams = meal.oilLevel === 'none' ? 0 : meal.oilLevel === 'low' ? 5 : meal.oilLevel === 'medium' ? 10 : 15;
+    const oilDiffGrams = oilGrams - baseOilGrams;
+
+    const scaledCalories = Math.round(meal.macros.calories * portionMultiplier + oilDiffGrams * 9);
     const scaledProtein = Math.round(meal.macros.protein * portionMultiplier);
     const scaledCarbs = Math.round(meal.macros.carbs * portionMultiplier);
-    const scaledFat = Math.round(meal.macros.fat * portionMultiplier + (oil === 'low' ? -4 : oil === 'standard' ? 4 : 0));
+    const scaledFat = Math.max(0, Math.round(meal.macros.fat * portionMultiplier + oilDiffGrams));
 
     const newMeal: MealItem = {
       ...meal,
